@@ -1,13 +1,14 @@
-export type UserRole = 'admin' | 'manager' | 'driver' | 'finance' | 'maintenance';
+export type UserRole = 'admin' | 'manager' | 'driver' | 'finance' | 'maintenance' | 'pending';
 
 export interface UserProfile {
   uid: string;
   name: string;
   email: string;
+  cpf: string;
   role: UserRole;
   unit: string;
   department?: string;
-  status: 'active' | 'inactive' | 'blocked';
+  status: 'active' | 'inactive' | 'blocked' | 'pending';
   cnh?: string;
   cnhCategory?: string;
   cnhExpiry?: string;

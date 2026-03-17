@@ -25,32 +25,40 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && (
-        getUserData().role == 'admin' || 
-        request.auth.token.email == 'pasimplicio@gmail.com'
+        request.auth.token.email == 'pasimplicio@gmail.com' || 
+        (request.auth.token.firebase.identities.email[0] == 'pasimplicio@gmail.com') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
     }
 
     function isManager() {
-      return isAuthenticated() && getUserData().role == 'manager';
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
     }
 
     function isDriver() {
-      return isAuthenticated() && getUserData().role == 'driver';
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver';
     }
 
     function belongsToUnit(unit) {
-      return getUserData().unit == unit;
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.unit == unit;
     }
 
     // Rules
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow write: if isAdmin() || (isAuthenticated() && (request.auth.uid == userId || request.auth.token.email == 'pasimplicio@gmail.com' || request.auth.token.firebase.identities.email[0] == 'pasimplicio@gmail.com'));
     }
 
     match /vehicles/{vehicleId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || isManager();
+      allow write: if isAdmin() || isManager() || (isAuthenticated() && (request.auth.token.email == 'pasimplicio@gmail.com' || request.auth.token.firebase.identities.email[0] == 'pasimplicio@gmail.com'));
     }
 
     match /reservations/{resId} {
@@ -61,7 +69,9 @@ service cloud.firestore {
 
     match /maintenance/{mId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || isManager() || getUserData().role == 'maintenance';
+      allow write: if isAdmin() || isManager() || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'maintenance');
     }
 
     match /fueling/{fId} {
