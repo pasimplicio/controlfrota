@@ -143,27 +143,62 @@ export default function App() {
     pendingApprovals: 0
   });
 
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isBypass, setIsBypass] = useState(false);
+
   useEffect(() => {
+    const savedBypass = localStorage.getItem('controlfrota_bypass');
+    if (savedBypass) {
+      const mockUser = JSON.parse(savedBypass);
+      setUser(mockUser);
+      setProfile({
+        uid: mockUser.uid,
+        name: mockUser.displayName,
+        email: mockUser.email,
+        role: 'admin',
+        unit: 'Matriz',
+        status: 'active'
+      });
+      setIsBypass(true);
+      setLoading(false);
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (localStorage.getItem('controlfrota_bypass')) return;
+      
       setUser(u);
       if (u) {
-        const docRef = doc(db, 'users', u.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
-        } else {
-          // Create default profile for new user
-          const newProfile: UserProfile = {
+        setIsBypass(false);
+        try {
+          const docRef = doc(db, 'users', u.uid);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            setProfile(docSnap.data() as UserProfile);
+          } else {
+            const newProfile: UserProfile = {
+              uid: u.uid,
+              name: u.displayName || 'Usuário',
+              email: u.email || '',
+              role: u.email === 'pasimplicio@gmail.com' ? 'admin' : 'driver',
+              unit: 'Matriz',
+              status: 'active'
+            };
+            await setDoc(docRef, newProfile);
+            setProfile(newProfile);
+          }
+        } catch (err) {
+          console.error("Error loading profile from Firestore", err);
+          // Fallback if Firestore fails
+          setProfile({
             uid: u.uid,
             name: u.displayName || 'Usuário',
             email: u.email || '',
-            role: u.email === 'pasimplicio@gmail.com' ? 'admin' : 'driver',
+            role: 'driver',
             unit: 'Matriz',
             status: 'active'
-          };
-          await setDoc(docRef, newProfile);
-          setProfile(newProfile);
+          });
         }
       } else {
         setProfile(null);
@@ -176,6 +211,22 @@ export default function App() {
   useEffect(() => {
     if (!profile) return;
 
+    if (isBypass) {
+      // Mock data for bypass mode
+      setVehicles([
+        { id: '1', model: 'Corolla', brand: 'Toyota', plate: 'ABC-1234', type: 'sedan', status: 'available', fuelType: 'flex', mileage: 15000, lastMaintenance: '2024-01-15' },
+        { id: '2', model: 'Hilux', brand: 'Toyota', plate: 'XYZ-9876', type: 'pickup', status: 'reserved', fuelType: 'diesel', mileage: 45000, lastMaintenance: '2024-02-10' },
+        { id: '3', model: 'Onix', brand: 'Chevrolet', plate: 'KJH-4433', type: 'hatch', status: 'maintenance', fuelType: 'flex', mileage: 22000, lastMaintenance: '2023-12-05' }
+      ]);
+      setStats({
+        totalVehicles: 3,
+        activeReservations: 1,
+        maintenanceCount: 1,
+        pendingApprovals: 0
+      });
+      return;
+    }
+
     // Real-time vehicles
     const vQuery = query(collection(db, 'vehicles'));
     const unsubscribeV = onSnapshot(vQuery, (snapshot) => {
@@ -186,7 +237,7 @@ export default function App() {
         totalVehicles: vList.length,
         maintenanceCount: vList.filter(v => v.status === 'maintenance').length
       }));
-    });
+    }, (err) => console.error("Firestore vehicles error", err));
 
     // Real-time reservations
     const rQuery = query(collection(db, 'reservations'), orderBy('startDate', 'desc'), limit(50));
@@ -198,24 +249,68 @@ export default function App() {
         activeReservations: rList.filter(r => r.status === 'active').length,
         pendingApprovals: rList.filter(r => r.status === 'pending').length
       }));
-    });
+    }, (err) => console.error("Firestore reservations error", err));
 
     return () => {
       unsubscribeV();
       unsubscribeR();
     };
-  }, [profile]);
+  }, [profile, isBypass]);
+
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const handleLogin = async () => {
+    setLoginError(null);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        setLoginError("Este domínio não está autorizado no Firebase. Adicione '" + window.location.hostname + "' na lista de domínios autorizados no console do Firebase.");
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setLoginError("O login com Google não está ativado no seu projeto Firebase.");
+      } else {
+        setLoginError("Erro ao autenticar: " + (error.message || "Verifique as chaves do Firebase no menu Settings."));
+      }
     }
   };
 
-  const handleLogout = () => signOut(auth);
+  const handleBypassLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email === 'admin@teste.com' && password === 'senha123') {
+      const mockUser = {
+        uid: 'bypass-admin',
+        displayName: 'Admin Teste',
+        email: 'admin@teste.com',
+        photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin'
+      };
+      setUser(mockUser as any);
+      setProfile({
+        uid: mockUser.uid,
+        name: mockUser.displayName,
+        email: mockUser.email,
+        role: 'admin',
+        unit: 'Matriz',
+        status: 'active'
+      });
+      setIsBypass(true);
+      localStorage.setItem('controlfrota_bypass', JSON.stringify(mockUser));
+    } else {
+      setLoginError("Credenciais de teste inválidas. Use admin@teste.com / senha123");
+    }
+  };
+
+  const handleLogout = () => {
+    if (isBypass) {
+      localStorage.removeItem('controlfrota_bypass');
+      setUser(null);
+      setProfile(null);
+      setIsBypass(false);
+    } else {
+      signOut(auth);
+    }
+  };
 
   if (loading) {
     return (
@@ -243,6 +338,51 @@ export default function App() {
             <h1 className="text-3xl font-bold text-zinc-900 mb-2">ControlFrota</h1>
             <p className="text-zinc-500 mb-8">Gestão inteligente de veículos e frotas corporativas.</p>
             
+            {loginError && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs text-left">
+                <p className="font-bold mb-1">Erro de Autenticação:</p>
+                <p>{loginError}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleBypassLogin} className="space-y-4 mb-6">
+              <div className="text-left">
+                <label className="text-[10px] uppercase font-bold text-zinc-400 ml-1">Email de Teste</label>
+                <input 
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@teste.com"
+                  className="w-full mt-1 px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm"
+                />
+              </div>
+              <div className="text-left">
+                <label className="text-[10px] uppercase font-bold text-zinc-400 ml-1">Senha</label>
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full mt-1 px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold hover:bg-emerald-600 transition-all shadow-lg active:scale-95 text-sm"
+              >
+                Entrar (Bypass Teste)
+              </button>
+            </form>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-zinc-100"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-zinc-400">Ou use Google</span>
+              </div>
+            </div>
+
             <button
               onClick={handleLogin}
               className="w-full flex items-center justify-center gap-3 bg-zinc-900 text-white py-4 rounded-xl font-bold hover:bg-zinc-800 transition-all shadow-lg active:scale-95"
@@ -254,6 +394,14 @@ export default function App() {
             <p className="mt-8 text-[10px] text-zinc-400 uppercase tracking-widest">
               Acesso restrito a colaboradores autorizados
             </p>
+
+            <div className="mt-8 pt-6 border-t border-zinc-100">
+              <p className="text-[10px] text-zinc-400 uppercase mb-2">Problemas com o login?</p>
+              <p className="text-[10px] text-zinc-500 leading-relaxed">
+                Se o login não funcionar, as chaves do Firebase podem não estar configuradas. 
+                Vá em <b>Settings</b> e adicione as variáveis <code>VITE_FIREBASE_*</code> conforme o arquivo <code>.env.example</code>.
+              </p>
+            </div>
           </div>
         </motion.div>
       </div>
