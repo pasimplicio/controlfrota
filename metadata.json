@@ -1,0 +1,5 @@
+{
+  "name": "ControlFrota",
+  "description": "Sistema completo de gestão e controle de frota de veículos, incluindo reservas, manutenção, abastecimento e rastreamento.",
+  "requestFramePermissions": ["camera", "geolocation"]
+}

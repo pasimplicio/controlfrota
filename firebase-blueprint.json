@@ -1,0 +1,101 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user with role and permissions",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "manager", "driver", "finance", "maintenance"] },
+        "unit": { "type": "string" },
+        "department": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive", "blocked"] },
+        "cnh": { "type": "string" },
+        "cnhCategory": { "type": "string" },
+        "cnhExpiry": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "role", "status"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "Fleet vehicle details",
+      "type": "object",
+      "properties": {
+        "plate": { "type": "string" },
+        "renavam": { "type": "string" },
+        "chassis": { "type": "string" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "year": { "type": "number" },
+        "color": { "type": "string" },
+        "fuelType": { "type": "string" },
+        "currentKm": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "maintenance", "inactive", "reserved"] },
+        "type": { "type": "string" },
+        "unit": { "type": "string" },
+        "ownerType": { "type": "string" },
+        "hasGps": { "type": "boolean" },
+        "hasCamera": { "type": "boolean" }
+      },
+      "required": ["plate", "brand", "model", "status", "currentKm"]
+    },
+    "Reservation": {
+      "title": "Reservation",
+      "description": "Vehicle usage request",
+      "type": "object",
+      "properties": {
+        "vehicleId": { "type": "string" },
+        "driverId": { "type": "string" },
+        "reason": { "type": "string" },
+        "destination": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "active", "completed"] },
+        "approvedBy": { "type": "string" },
+        "startKm": { "type": "number" },
+        "endKm": { "type": "number" },
+        "startFuel": { "type": "number" },
+        "endFuel": { "type": "number" }
+      },
+      "required": ["vehicleId", "driverId", "startDate", "endDate", "status"]
+    },
+    "Maintenance": {
+      "title": "Maintenance",
+      "description": "Vehicle maintenance record",
+      "type": "object",
+      "properties": {
+        "vehicleId": { "type": "string" },
+        "type": { "type": "string" },
+        "date": { "type": "string" },
+        "problem": { "type": "string" },
+        "cost": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["vehicleId", "type", "date", "status"]
+    },
+    "Fueling": {
+      "title": "Fueling",
+      "description": "Fueling record",
+      "type": "object",
+      "properties": {
+        "vehicleId": { "type": "string" },
+        "driverId": { "type": "string" },
+        "date": { "type": "string" },
+        "km": { "type": "number" },
+        "liters": { "type": "number" },
+        "cost": { "type": "number" },
+        "fuelType": { "type": "string" }
+      },
+      "required": ["vehicleId", "driverId", "date", "km", "liters"]
+    }
+  },
+  "firestore": {
+    "/users": { "schema": "User", "description": "System users" },
+    "/vehicles": { "schema": "Vehicle", "description": "Fleet vehicles" },
+    "/reservations": { "schema": "Reservation", "description": "Vehicle reservations" },
+    "/maintenance": { "schema": "Maintenance", "description": "Maintenance logs" },
+    "/fueling": { "schema": "Fueling", "description": "Fueling logs" }
+  }
+}

@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: users
+    // Fields: uid, name, email, role, unit, status
+    //
+    // Collection: vehicles
+    // Fields: plate, brand, model, status, unit, currentKm
+    //
+    // Collection: reservations
+    // Fields: vehicleId, driverId, status, startDate, endDate
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        getUserData().role == 'admin' || 
+        request.auth.token.email == 'pasimplicio@gmail.com'
+      );
+    }
+
+    function isManager() {
+      return isAuthenticated() && getUserData().role == 'manager';
+    }
+
+    function isDriver() {
+      return isAuthenticated() && getUserData().role == 'driver';
+    }
+
+    function belongsToUnit(unit) {
+      return getUserData().unit == unit;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+    }
+
+    match /vehicles/{vehicleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isManager();
+    }
+
+    match /reservations/{resId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin() || isManager() || (isAuthenticated() && resource.data.driverId == request.auth.uid);
+    }
+
+    match /maintenance/{mId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isManager() || getUserData().role == 'maintenance';
+    }
+
+    match /fueling/{fId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+  }
+}
