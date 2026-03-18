@@ -34,10 +34,20 @@
         "currentKm": { "type": "number" },
         "status": { "type": "string", "enum": ["active", "maintenance", "inactive", "reserved"] },
         "type": { "type": "string" },
+        "category": { "type": "string" },
+        "hierarchyLevel": { "type": "string" },
         "unit": { "type": "string" },
-        "ownerType": { "type": "string" },
         "hasGps": { "type": "boolean" },
-        "hasCamera": { "type": "boolean" }
+        "hasCamera": { "type": "boolean" },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "documents": {
+          "type": "object",
+          "properties": {
+            "crlv": { "type": "string" },
+            "insurance": { "type": "string" },
+            "licensing": { "type": "string" }
+          }
+        }
       },
       "required": ["plate", "brand", "model", "status", "currentKm"]
     },
@@ -89,6 +99,22 @@
         "fuelType": { "type": "string" }
       },
       "required": ["vehicleId", "driverId", "date", "km", "liters"]
+    },
+    "Unit": {
+      "title": "Unit",
+      "description": "Operational base or unit",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "costCenter": { "type": "string" },
+        "managerId": { "type": "string" },
+        "departments": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["active", "inactive"] }
+      },
+      "required": ["name", "address", "city", "state", "status"]
     }
   },
   "firestore": {
@@ -96,6 +122,7 @@
     "/vehicles": { "schema": "Vehicle", "description": "Fleet vehicles" },
     "/reservations": { "schema": "Reservation", "description": "Vehicle reservations" },
     "/maintenance": { "schema": "Maintenance", "description": "Maintenance logs" },
-    "/fueling": { "schema": "Fueling", "description": "Fueling logs" }
+    "/fueling": { "schema": "Fueling", "description": "Fueling logs" },
+    "/units": { "schema": "Unit", "description": "Operational units" }
   }
 }

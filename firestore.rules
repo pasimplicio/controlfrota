@@ -62,9 +62,10 @@ service cloud.firestore {
     }
 
     match /reservations/{resId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAdmin() || isManager() || (isAuthenticated() && resource.data.driverId == request.auth.uid);
+      allow read: if isAdmin() || isManager() || (isAuthenticated() && (resource.data.driverId == request.auth.uid || belongsToUnit(resource.data.unit)));
+      allow create: if isAuthenticated() && request.resource.data.status == 'pending';
+      allow update: if isAdmin() || isManager() || (isAuthenticated() && resource.data.driverId == request.auth.uid && request.resource.data.status == resource.data.status);
+      allow delete: if isAdmin() || isManager() || (isAuthenticated() && resource.data.driverId == request.auth.uid);
     }
 
     match /maintenance/{mId} {
@@ -77,6 +78,16 @@ service cloud.firestore {
     match /fueling/{fId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
+    }
+
+    match /units/{unitId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isManager() || (isAuthenticated() && (request.auth.token.email == 'pasimplicio@gmail.com' || request.auth.token.firebase.identities.email[0] == 'pasimplicio@gmail.com'));
+    }
+
+    match /system_config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
   }
 }
