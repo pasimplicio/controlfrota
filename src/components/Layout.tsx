@@ -17,12 +17,15 @@ import {
   Moon,
   User as UserIcon,
   Menu,
-  Building2
+  Building2,
+  Settings as SettingsIcon,
+  CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { SidebarItem } from './SidebarItem';
+import { NotificationCenter } from './UI/NotificationCenter';
 
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
@@ -80,8 +83,10 @@ export function Layout() {
   ];
 
   if (profile?.role === 'admin' || profile?.role === 'manager') {
+    menuItems.push({ icon: CheckCircle2, label: 'Aprovações', path: '/approvals' });
     menuItems.push({ icon: Building2, label: 'Unidades', path: '/units' });
     menuItems.push({ icon: Users, label: 'Usuários', path: '/users' });
+    menuItems.push({ icon: SettingsIcon, label: 'Configurações', path: '/settings' });
   }
 
   return (
@@ -146,6 +151,10 @@ export function Layout() {
         </nav>
 
         <div className="p-4 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="flex items-center justify-between mb-4 px-2">
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Notificações</span>
+            <NotificationCenter />
+          </div>
           <div className="flex items-center gap-3 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg mb-3">
             <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden border border-white dark:border-zinc-600 shadow-sm">
               {user?.photoURL ? <img src={user.photoURL} alt={user.displayName || ''} /> : <UserIcon className="p-2 text-zinc-400" />}
@@ -161,19 +170,22 @@ export function Layout() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* Mobile Header */}
-        <header className="lg:hidden h-16 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-4 shrink-0">
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-500"
-          >
-            <Menu size={20} />
-          </button>
-          <div className="ml-4 flex items-center gap-2">
-            <div className="w-6 h-6 bg-emerald-500 rounded flex items-center justify-center">
-              <Car className="text-white" size={14} />
+        <header className="lg:hidden h-16 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 shrink-0">
+          <div className="flex items-center">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-500"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="ml-4 flex items-center gap-2">
+              <div className="w-6 h-6 bg-emerald-500 rounded flex items-center justify-center">
+                <Car className="text-white" size={14} />
+              </div>
+              <span className="font-bold text-sm dark:text-white">ControlFrota</span>
             </div>
-            <span className="font-bold text-sm dark:text-white">ControlFrota</span>
           </div>
+          <NotificationCenter />
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 lg:p-8">

@@ -7,6 +7,8 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { ConfirmModal } from './ConfirmModal';
 import { useAuth } from '../../context/AuthContext';
+import { subscribeToSettings, DEFAULT_SETTINGS } from '../../services/settingsService';
+import { Settings } from '../../types';
 
 interface ReservationModalProps {
   isOpen: boolean;
@@ -19,6 +21,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation }: Reser
   const { profile } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [formData, setFormData] = useState<Partial<Reservation>>({
     vehicleId: '',
     driverId: profile?.uid || '',
@@ -47,9 +50,11 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation }: Reser
     const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
       setUsers(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
     });
+    const unsubSettings = subscribeToSettings(setSettings);
     return () => {
       unsubVehicles();
       unsubUsers();
+      unsubSettings();
     };
   }, []);
 
@@ -98,14 +103,14 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation }: Reser
   }, [vehicles, formData.vehicleId]);
 
   const needsJustification = useMemo(() => {
-    if (!selectedVehicle || !selectedDriver) return false;
+    if (!selectedVehicle || !selectedDriver || !settings.requireJustificationAboveHierarchy) return false;
     
     const vehiclePriority = selectedVehicle.hierarchyLevel ? HIERARCHY_PRIORITY[selectedVehicle.hierarchyLevel] : 0;
     const driverPriority = selectedDriver.hierarchy ? HIERARCHY_PRIORITY[selectedDriver.hierarchy] : 0;
 
     // Rule: If vehicle level > driver level, need justification
     return vehiclePriority > driverPriority;
-  }, [selectedVehicle, selectedDriver]);
+  }, [selectedVehicle, selectedDriver, settings.requireJustificationAboveHierarchy]);
 
   const [allReservations, setAllReservations] = useState<Reservation[]>([]);
   useEffect(() => {
@@ -134,6 +139,31 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation }: Reser
     if (isSaving) return;
 
     // Basic Validations
+    const now = new Date();
+    const start = new Date(formData.startDate!);
+    const end = new Date(formData.endDate!);
+    
+    // Rule: Minimum advance notice
+    const minAdvance = new Date(now.getTime() + settings.minAdvanceHours * 60 * 60 * 1000);
+    if (start < minAdvance && !reservation && profile?.role !== 'admin') {
+      setError(`Reservas devem ser feitas com no mínimo ${settings.minAdvanceHours} horas de antecedência.`);
+      return;
+    }
+
+    // Rule: Maximum advance notice
+    const maxAdvance = new Date(now.getTime() + settings.maxAdvanceDays * 24 * 60 * 60 * 1000);
+    if (start > maxAdvance && profile?.role !== 'admin') {
+      setError(`Reservas não podem ser feitas com mais de ${settings.maxAdvanceDays} dias de antecedência.`);
+      return;
+    }
+
+    // Rule: Weekend reservations
+    const isWeekend = start.getDay() === 0 || start.getDay() === 6;
+    if (isWeekend && !settings.allowWeekendReservations && profile?.role !== 'admin') {
+      setError('Reservas não são permitidas nos fins de semana.');
+      return;
+    }
+
     if (!formData.driverId || !formData.vehicleId || !formData.startDate || !formData.endDate || !formData.destination || !formData.reason) {
       setError('Por favor, preencha todos os campos obrigatórios.');
       return;

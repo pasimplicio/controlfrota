@@ -115,6 +115,71 @@
         "status": { "type": "string", "enum": ["active", "inactive"] }
       },
       "required": ["name", "address", "city", "state", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System notification for users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "success", "warning", "error"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "link": { "type": "string" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Global system settings",
+      "type": "object",
+      "properties": {
+        "minAdvanceHours": { "type": "number" },
+        "maxAdvanceDays": { "type": "number" },
+        "allowWeekendReservations": { "type": "boolean" },
+        "requireJustificationAboveHierarchy": { "type": "boolean" }
+      }
+    },
+    "Inspection": {
+      "title": "Inspection",
+      "description": "Vehicle check-in/check-out inspection",
+      "type": "object",
+      "properties": {
+        "reservationId": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["check-out", "check-in"] },
+        "km": { "type": "number" },
+        "fuelLevel": { "type": "number" },
+        "checklist": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "item": { "type": "string" },
+              "status": { "type": "string", "enum": ["ok", "ruim", "na"] },
+              "comment": { "type": "string" }
+            }
+          }
+        },
+        "damages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "part": { "type": "string" },
+              "description": { "type": "string" },
+              "photoUrl": { "type": "string" }
+            }
+          }
+        },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["reservationId", "vehicleId", "userId", "type", "km", "fuelLevel", "createdAt"]
     }
   },
   "firestore": {
@@ -123,6 +188,10 @@
     "/reservations": { "schema": "Reservation", "description": "Vehicle reservations" },
     "/maintenance": { "schema": "Maintenance", "description": "Maintenance logs" },
     "/fueling": { "schema": "Fueling", "description": "Fueling logs" },
-    "/units": { "schema": "Unit", "description": "Operational units" }
+    "/units": { "schema": "Unit", "description": "Operational units" },
+    "/notifications": { "schema": "Notification", "description": "User notifications" },
+    "/settings": { "schema": "Settings", "description": "System settings" },
+    "/inspections": { "schema": "Inspection", "description": "Vehicle inspections" },
+    "/system_config": { "schema": "object", "description": "Internal system configuration and maintenance flags" }
   }
 }

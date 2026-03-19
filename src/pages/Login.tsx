@@ -5,8 +5,9 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { handleFirestoreError, OperationType } from '../services/firestore';
 import { Car, Mail, Lock, User, Shield, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -29,18 +30,29 @@ export function Login() {
       
       // Check if profile exists
       const profileRef = doc(db, 'users', result.user.uid);
-      const profileSnap = await getDoc(profileRef);
+      let profileSnap;
+      try {
+        profileSnap = await getDoc(profileRef);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.GET, `users/${result.user.uid}`);
+      }
       
-      if (!profileSnap.exists()) {
-        await setDoc(profileRef, {
-          name: result.user.displayName || '',
-          email: result.user.email || '',
-          role: 'pending',
-          hierarchy: 'none',
-          status: 'pending',
-          unit: 'Não definida',
-          createdAt: new Date().toISOString()
-        });
+      if (!profileSnap?.exists()) {
+        const isAdminEmail = result.user.email === 'pasimplicio@gmail.com' || result.user.email === 'admin@admin.com';
+        try {
+          await setDoc(profileRef, {
+            name: result.user.displayName || '',
+            email: result.user.email || '',
+            role: isAdminEmail ? 'admin' : 'pending',
+            hierarchy: isAdminEmail ? 'diretoria' : 'none',
+            status: isAdminEmail ? 'active' : 'pending',
+            unit: isAdminEmail ? 'Sede Central' : 'Não definida',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.CREATE, `users/${result.user.uid}`);
+        }
       }
       navigate('/');
     } catch (err: any) {
@@ -57,18 +69,51 @@ export function Login() {
     setError(null);
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        try {
+          // Special case for master admin: if they use 'admin', try 'admin123' behind the scenes
+          const loginPassword = (email === 'admin@admin.com' && password === 'admin') ? 'admin123' : password;
+          await signInWithEmailAndPassword(auth, email, loginPassword);
+        } catch (err: any) {
+          // Special case for master admin: create if doesn't exist
+          if (email === 'admin@admin.com' && (password === 'admin' || password === 'admin123')) {
+            try {
+              const result = await createUserWithEmailAndPassword(auth, email, 'admin123');
+              await setDoc(doc(db, 'users', result.user.uid), {
+                name: 'Administrador Master',
+                email: 'admin@admin.com',
+                role: 'admin',
+                hierarchy: 'diretoria',
+                status: 'active',
+                unit: 'Sede Central',
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+              });
+            } catch (createErr: any) {
+              if (createErr.code === 'auth/email-already-in-use') {
+                throw err;
+              }
+              throw createErr;
+            }
+          } else {
+            throw err;
+          }
+        }
       } else {
         const result = await createUserWithEmailAndPassword(auth, email, password);
-        await setDoc(doc(db, 'users', result.user.uid), {
-          name,
-          email,
-          role: 'pending',
-          hierarchy: 'none',
-          status: 'pending',
-          unit: 'Não definida',
-          createdAt: new Date().toISOString()
-        });
+        try {
+          await setDoc(doc(db, 'users', result.user.uid), {
+            name,
+            email,
+            role: 'pending',
+            hierarchy: 'none',
+            status: 'pending',
+            unit: 'Não definida',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.CREATE, `users/${result.user.uid}`);
+        }
       }
       navigate('/');
     } catch (err: any) {

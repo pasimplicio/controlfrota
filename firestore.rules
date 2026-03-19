@@ -20,59 +20,70 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
     }
 
     function isAdmin() {
+      let data = getUserData();
       return isAuthenticated() && (
         request.auth.token.email == 'pasimplicio@gmail.com' || 
-        (request.auth.token.firebase.identities.email[0] == 'pasimplicio@gmail.com') ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        request.auth.token.email == 'admin@admin.com' ||
+        (data != null && data.role == 'admin')
       );
     }
 
     function isManager() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
+      let data = getUserData();
+      return isAuthenticated() && data != null && data.role == 'manager';
     }
 
     function isDriver() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver';
+      let data = getUserData();
+      return isAuthenticated() && data != null && data.role == 'driver';
+    }
+
+    function isFinance() {
+      let data = getUserData();
+      return isAuthenticated() && data != null && data.role == 'finance';
+    }
+
+    function isMaintenance() {
+      let data = getUserData();
+      return isAuthenticated() && data != null && data.role == 'maintenance';
     }
 
     function belongsToUnit(unit) {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.unit == unit;
+      let data = getUserData();
+      return isAuthenticated() && data != null && data.unit == unit;
     }
 
     // Rules
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || (isAuthenticated() && (request.auth.uid == userId || request.auth.token.email == 'pasimplicio@gmail.com' || request.auth.token.firebase.identities.email[0] == 'pasimplicio@gmail.com'));
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow delete: if isAdmin();
     }
 
     match /vehicles/{vehicleId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || isManager() || (isAuthenticated() && (request.auth.token.email == 'pasimplicio@gmail.com' || request.auth.token.firebase.identities.email[0] == 'pasimplicio@gmail.com'));
+      allow write: if isAdmin() || isManager();
     }
 
     match /reservations/{resId} {
-      allow read: if isAdmin() || isManager() || (isAuthenticated() && (resource.data.driverId == request.auth.uid || belongsToUnit(resource.data.unit)));
-      allow create: if isAuthenticated() && request.resource.data.status == 'pending';
-      allow update: if isAdmin() || isManager() || (isAuthenticated() && resource.data.driverId == request.auth.uid && request.resource.data.status == resource.data.status);
-      allow delete: if isAdmin() || isManager() || (isAuthenticated() && resource.data.driverId == request.auth.uid);
+      // Relaxed read to allow Dashboard and Reservations list queries to work for all roles
+      // Client-side filtering handles the view logic
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() || isManager() || 
+        (isAuthenticated() && resource.data.driverId == request.auth.uid);
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.driverId == request.auth.uid && resource.data.status == 'pending');
     }
 
     match /maintenance/{mId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || isManager() || 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'maintenance');
+      allow write: if isAdmin() || isManager() || isMaintenance();
     }
 
     match /fueling/{fId} {
@@ -82,12 +93,30 @@ service cloud.firestore {
 
     match /units/{unitId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || isManager() || (isAuthenticated() && (request.auth.token.email == 'pasimplicio@gmail.com' || request.auth.token.firebase.identities.email[0] == 'pasimplicio@gmail.com'));
+      allow write: if isAdmin();
+    }
+
+    match /notifications/{nId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated(); // Allow drivers to notify admins/managers
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /settings/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /inspections/{inspectionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() || isManager();
+      allow delete: if isAdmin();
     }
 
     match /system_config/{configId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }

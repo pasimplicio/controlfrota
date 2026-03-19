@@ -27,7 +27,7 @@ export interface UserProfile {
   uid: string;
   name: string;
   email: string;
-  cpf: string;
+  cpf?: string;
   role: UserRole;
   hierarchy: UserHierarchy;
   unit: string;
@@ -36,6 +36,8 @@ export interface UserProfile {
   cnh?: string;
   cnhCategory?: string;
   cnhExpiry?: string;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export interface Vehicle {
@@ -85,4 +87,66 @@ export interface Reservation {
     updatedAt: any;
     comment?: string;
   }[];
+  checkOutId?: string;
+  checkInId?: string;
+}
+
+export interface Inspection {
+  id: string;
+  reservationId?: string;
+  maintenanceId?: string;
+  vehicleId: string;
+  driverId: string;
+  type: 'check-out' | 'check-in';
+  km: number;
+  fuelLevel: number; // 0 to 100
+  photos: string[];
+  damages: {
+    part: string;
+    description: string;
+    photo?: string;
+  }[];
+  checklist: {
+    item: string;
+    status: 'ok' | 'ruim' | 'na';
+    comment?: string;
+  }[];
+  notes?: string;
+  createdAt: any;
+}
+
+export interface Maintenance {
+  id: string;
+  vehicleId: string;
+  type: 'preventive' | 'corrective' | 'cleaning' | 'other';
+  status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
+  description: string;
+  scheduledDate: string;
+  completedDate?: string;
+  cost?: number;
+  kmAtMaintenance: number;
+  checkOutId?: string;
+  checkInId?: string;
+  notes?: string;
+  createdAt: any;
+  updatedAt: any;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read: boolean;
+  createdAt: any;
+  link?: string;
+}
+
+export interface Settings {
+  id?: string;
+  minAdvanceHours: number;
+  maxAdvanceDays: number;
+  allowWeekendReservations: boolean;
+  requireJustificationAboveHierarchy: boolean;
 }

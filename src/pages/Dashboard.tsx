@@ -33,8 +33,9 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { Vehicle, Reservation, UserProfile } from '../types';
+import { Vehicle, Reservation, UserProfile, Notification } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { Bell } from 'lucide-react';
 
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
 
@@ -56,6 +57,7 @@ export function Dashboard() {
     pendingApprovals: 0
   });
   const [recentReservations, setRecentReservations] = useState<Reservation[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
 
@@ -67,8 +69,8 @@ export function Dashboard() {
     const unsubVehicles = onSnapshot(collection(db, 'vehicles'), (snap) => {
       let vData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vehicle));
       
-      // Filter by unit for drivers
-      if (profile?.role === 'driver' && profile.unit) {
+      // Filter by unit for drivers and managers
+      if ((profile?.role === 'driver' || profile?.role === 'manager') && profile.unit) {
         vData = vData.filter(v => v.unit === profile.unit);
       }
 
@@ -85,26 +87,46 @@ export function Dashboard() {
       (snap) => {
         let rData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Reservation));
         
-        // Filter by unit or driverId for drivers
-        if (profile?.role === 'driver' && profile.unit) {
+        // Filter by unit or driverId for drivers and managers
+        if ((profile?.role === 'driver' || profile?.role === 'manager') && profile.unit) {
           rData = rData.filter(r => r.unit === profile.unit || r.driverId === profile.uid);
         }
 
         setRecentReservations(rData.slice(0, 5));
         setStats(prev => ({
           ...prev,
-          activeReservations: rData.filter(r => r.status === 'active').length,
+          activeReservations: rData.filter(r => r.status === 'active' || r.status === 'approved').length,
           pendingApprovals: rData.filter(r => r.status === 'pending').length
         }));
       }
     );
+
+    if (profile?.uid) {
+      const unsubNotifications = onSnapshot(
+        query(
+          collection(db, 'notifications'), 
+          where('userId', '==', profile.uid), 
+          orderBy('createdAt', 'desc'),
+          limit(3)
+        ),
+        (snap) => {
+          setNotifications(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification)));
+        }
+      );
+      return () => {
+        unsubUsers();
+        unsubVehicles();
+        unsubReservations();
+        unsubNotifications();
+      };
+    }
 
     return () => {
       unsubUsers();
       unsubVehicles();
       unsubReservations();
     };
-  }, []);
+  }, [profile]);
 
   const vehicleTypeData = vehicles.reduce((acc: any[], vehicle) => {
     const existing = acc.find(item => item.name === vehicle.type);
@@ -115,6 +137,24 @@ export function Dashboard() {
     }
     return acc;
   }, []);
+
+  if (profile?.status === 'pending' || profile?.status === 'blocked') {
+    return (
+      <div className="h-[calc(100vh-160px)] flex flex-col items-center justify-center text-center p-8">
+        <div className={`w-20 h-20 ${profile.status === 'pending' ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-500' : 'bg-red-100 dark:bg-red-500/10 text-red-500'} rounded-3xl flex items-center justify-center mb-6`}>
+          {profile.status === 'pending' ? <Clock size={40} /> : <AlertTriangle size={40} />}
+        </div>
+        <h1 className="text-2xl font-bold dark:text-white mb-2">
+          {profile.status === 'pending' ? 'Conta em Análise' : 'Conta Bloqueada'}
+        </h1>
+        <p className="text-zinc-500 dark:text-zinc-400 max-w-md">
+          {profile.status === 'pending' 
+            ? 'Seu cadastro foi recebido e está aguardando aprovação de um administrador. Você receberá acesso total em breve.' 
+            : 'Sua conta foi bloqueada por um administrador. Entre em contato com o suporte para mais informações.'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -132,17 +172,34 @@ export function Dashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Total de Veículos', value: stats.totalVehicles, icon: Car, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-          { label: 'Reservas Ativas', value: stats.activeReservations, icon: Calendar, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-          { label: 'Em Manutenção', value: stats.maintenanceCount, icon: Wrench, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-500/10' },
-          { label: 'Aguardando Aprovação', value: stats.pendingApprovals, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-500/10' },
+          { label: 'Total de Veículos', value: stats.totalVehicles, icon: Car, color: 'text-blue-600', border: 'border-l-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+          { label: 'Reservas Ativas', value: stats.activeReservations, icon: Calendar, color: 'text-emerald-600', border: 'border-l-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+          { 
+            label: 'Em Manutenção', 
+            value: stats.maintenanceCount, 
+            icon: Wrench, 
+            color: 'text-amber-600', 
+            border: 'border-l-amber-500',
+            bg: 'bg-amber-50 dark:bg-amber-500/10',
+            onClick: (profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'maintenance') ? () => navigate('/maintenance') : undefined
+          },
+          { 
+            label: 'Aguardando Aprovação', 
+            value: stats.pendingApprovals, 
+            icon: AlertTriangle, 
+            color: 'text-red-600', 
+            border: 'border-l-red-500',
+            bg: 'bg-red-50 dark:bg-red-500/10',
+            onClick: (profile?.role === 'admin' || profile?.role === 'manager') ? () => navigate('/approvals') : undefined
+          },
         ].map((stat, i) => (
           <motion.div 
             key={i}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-md transition-shadow"
+            onClick={stat.onClick}
+            className={`bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 border-l-4 ${stat.border} shadow-sm hover:shadow-md transition-all ${stat.onClick ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : ''}`}
           >
             <div className="flex items-center justify-between mb-4">
               <div className={`p-3 ${stat.bg} rounded-2xl`}>
@@ -188,7 +245,7 @@ export function Dashboard() {
             </div>
             <div className="space-y-4">
               {recentReservations.map((res, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                <div key={i} className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 border-l-4 border-l-emerald-500">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-white dark:bg-zinc-800 rounded-xl flex items-center justify-center shadow-sm">
                       <Calendar className="text-emerald-500" size={20} />
@@ -219,6 +276,23 @@ export function Dashboard() {
 
         {/* Sidebar Info */}
         <div className="space-y-8">
+          {notifications.length > 0 && (
+            <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+              <h3 className="text-lg font-bold mb-6 dark:text-white flex items-center gap-2">
+                <Bell size={20} className="text-emerald-500" />
+                Notificações
+              </h3>
+              <div className="space-y-4">
+                {notifications.map((notif) => (
+                  <div key={notif.id} className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                    <p className="text-xs font-bold dark:text-white mb-1">{notif.title}</p>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-2">{notif.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="bg-emerald-600 p-8 rounded-3xl text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden">
             <div className="relative z-10">
               <h3 className="text-xl font-bold mb-2">Pronto para sair?</h3>

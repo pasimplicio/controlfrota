@@ -9,14 +9,15 @@ import { Button } from '../UI';
 interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Partial<UserProfile>) => Promise<void>;
+  onSave: (data: Partial<UserProfile & { password?: string }>) => Promise<void>;
   userProfile?: UserProfile | null;
 }
 
 export function UserModal({ isOpen, onClose, onSave, userProfile }: UserModalProps) {
-  const [formData, setFormData] = useState<Partial<UserProfile>>({
+  const [formData, setFormData] = useState<Partial<UserProfile & { password?: string }>>({
     name: '',
     email: '',
+    password: '',
     role: 'pending',
     hierarchy: 'none',
     unit: '',
@@ -37,11 +38,12 @@ export function UserModal({ isOpen, onClose, onSave, userProfile }: UserModalPro
 
   useEffect(() => {
     if (userProfile) {
-      setFormData(userProfile);
+      setFormData({ ...userProfile, password: '' });
     } else {
       setFormData({
         name: '',
         email: '',
+        password: '',
         role: 'pending',
         hierarchy: 'none',
         unit: '',
@@ -117,6 +119,19 @@ export function UserModal({ isOpen, onClose, onSave, userProfile }: UserModalPro
                   className="w-full bg-zinc-100 dark:bg-zinc-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500 transition-all dark:text-white"
                 />
               </div>
+              {!userProfile && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Senha de Acesso</label>
+                  <input 
+                    required={!userProfile}
+                    type="password"
+                    value={formData.password}
+                    onChange={e => setFormData({...formData, password: e.target.value})}
+                    placeholder="••••••••"
+                    className="w-full bg-zinc-100 dark:bg-zinc-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500 transition-all dark:text-white"
+                  />
+                </div>
+              )}
             </div>
           </section>
 

@@ -29,6 +29,8 @@ import { Card, StatusBadge, Button } from '../components/UI';
 import { UserModal } from '../components/Modals/UserModal';
 import { useAuth } from '../context/AuthContext';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
+import { registerUserAuth } from '../services/authService';
+import { setDoc } from 'firebase/firestore';
 
 export function Users() {
   const { profile } = useAuth();
@@ -110,10 +112,12 @@ export function Users() {
     });
   };
 
-  const handleSaveUser = async (data: Partial<UserProfile>) => {
+  const handleSaveUser = async (data: Partial<UserProfile & { password?: string }>) => {
     try {
-      // Check for duplicates
+      const { password, ...profileData } = data;
+
       if (!editingUser) {
+        // Check for duplicates
         const duplicateEmail = users.find(u => u.email.toLowerCase() === data.email?.toLowerCase());
         if (duplicateEmail) {
           setConfirmConfig({
@@ -125,6 +129,7 @@ export function Users() {
           });
           return;
         }
+
         if (data.cpf) {
           const duplicateCpf = users.find(u => u.cpf?.replace(/\D/g, '') === data.cpf?.replace(/\D/g, ''));
           if (duplicateCpf) {
@@ -138,22 +143,46 @@ export function Users() {
             return;
           }
         }
-      }
 
-      if (editingUser) {
+        // Register in Firebase Auth first
+        if (!password) {
+          throw new Error('Senha é obrigatória para novos usuários.');
+        }
+
+        const uid = await registerUserAuth(data.email!, password);
+        
+        // Create Firestore document
+        await setDoc(doc(db, 'users', uid), {
+          ...profileData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      } else {
         await updateDoc(doc(db, 'users', editingUser.uid), {
-          ...data,
+          ...profileData,
           updatedAt: serverTimestamp()
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving user:', err);
+      setConfirmConfig({
+        title: 'Erro ao Salvar',
+        message: err.message || 'Ocorreu um erro ao salvar o usuário.',
+        variant: 'danger',
+        isAlert: true,
+        onConfirm: () => {}
+      });
       throw err;
     }
   };
 
   const openEditModal = (user: UserProfile) => {
     setEditingUser(user);
+    setIsModalOpen(true);
+  };
+
+  const openNewModal = () => {
+    setEditingUser(null);
     setIsModalOpen(true);
   };
 
@@ -186,7 +215,7 @@ export function Users() {
               className="pl-12 pr-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all dark:text-white w-full md:w-64"
             />
           </div>
-          <Button variant="primary">
+          <Button variant="primary" onClick={openNewModal}>
             <UserPlus size={18} />
             Novo Usuário
           </Button>

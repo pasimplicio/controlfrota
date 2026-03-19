@@ -9,6 +9,9 @@ import { Users } from './pages/Users';
 import { Vehicles } from './pages/Vehicles';
 import { Reservations } from './pages/Reservations';
 import { Units } from './pages/Units';
+import { SettingsPage } from './pages/Settings';
+import { Approvals } from './pages/Approvals';
+import { MaintenancePage } from './pages/Maintenance';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -74,6 +77,11 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="vehicles" element={<Vehicles />} />
               <Route path="reservations" element={<Reservations />} />
+              <Route path="approvals" element={
+                <RoleRoute allowedRoles={['admin', 'manager']}>
+                  <Approvals />
+                </RoleRoute>
+              } />
               <Route path="users" element={
                 <RoleRoute allowedRoles={['admin', 'manager']}>
                   <Users />
@@ -84,7 +92,16 @@ function App() {
                   <Units />
                 </RoleRoute>
               } />
-              <Route path="maintenance" element={<PlaceholderPage title="Manutenção" />} />
+              <Route path="settings" element={
+                <RoleRoute allowedRoles={['admin', 'manager']}>
+                  <SettingsPage />
+                </RoleRoute>
+              } />
+              <Route path="maintenance" element={
+                <RoleRoute allowedRoles={['admin', 'manager', 'maintenance']}>
+                  <MaintenancePage />
+                </RoleRoute>
+              } />
               <Route path="fuel" element={<PlaceholderPage title="Abastecimento" />} />
               <Route path="fines" element={<PlaceholderPage title="Multas" />} />
             </Route>

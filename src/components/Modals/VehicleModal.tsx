@@ -40,6 +40,7 @@ export function VehicleModal({ isOpen, onClose, onSave, vehicle }: VehicleModalP
   const [units, setUnits] = useState<Unit[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -91,9 +92,19 @@ export function VehicleModal({ isOpen, onClose, onSave, vehicle }: VehicleModalP
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Basic file validation
+    if (file.size > 5 * 1024 * 1024) {
+      setError('A imagem deve ter no máximo 5MB.');
+      return;
+    }
+
     setIsUploading(true);
+    setError(null);
     try {
-      const storageRef = ref(storage, `vehicles/${formData.plate || 'temp'}/${Date.now()}_${file.name}`);
+      const plate = formData.plate?.trim() || 'temp';
+      const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+      const storageRef = ref(storage, `vehicles/${plate}/${fileName}`);
+      
       const snapshot = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snapshot.ref);
       
@@ -101,8 +112,9 @@ export function VehicleModal({ isOpen, onClose, onSave, vehicle }: VehicleModalP
         ...prev,
         photos: [...(prev.photos || []), url]
       }));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error uploading photo:', err);
+      setError('Erro ao fazer upload da foto. Verifique sua conexão ou permissões.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -160,6 +172,14 @@ export function VehicleModal({ isOpen, onClose, onSave, vehicle }: VehicleModalP
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-10">
+          {error && (
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl flex items-start gap-3">
+              <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shrink-0">
+                <X className="text-white" size={12} />
+              </div>
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            </div>
+          )}
           {/* Identificação */}
           <section className="space-y-4">
             <div className="flex items-center gap-2 text-emerald-500">
