@@ -5,7 +5,11 @@ import {
   onSnapshot, 
   where,
   orderBy,
-  limit
+  limit,
+  addDoc,
+  updateDoc,
+  doc,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +20,11 @@ import {
   AlertTriangle, 
   ChevronRight,
   MapPin,
-  Clock
+  Clock,
+  Fuel,
+  Building2,
+  Plus,
+  Bell
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
@@ -33,9 +41,10 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { Vehicle, Reservation, UserProfile, Notification } from '../types';
+import { Vehicle, Reservation, UserProfile, Notification, Fueling } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { Bell } from 'lucide-react';
+import { FuelingModal } from '../components/Modals/FuelingModal';
+import { AnimatePresence } from 'motion/react';
 
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
 
@@ -54,12 +63,15 @@ export function Dashboard() {
     totalVehicles: 0,
     activeReservations: 0,
     maintenanceCount: 0,
-    pendingApprovals: 0
+    pendingApprovals: 0,
+    totalFuelSpent: 0,
+    maintenanceAlerts: 0
   });
   const [recentReservations, setRecentReservations] = useState<Reservation[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [isFuelingModalOpen, setIsFuelingModalOpen] = useState(false);
 
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
@@ -74,11 +86,27 @@ export function Dashboard() {
         vData = vData.filter(v => v.unit === profile.unit);
       }
 
+      const alerts = vData.filter(v => {
+        let isAlert = false;
+        if (v.nextMaintenanceKm) {
+          const kmRemaining = v.nextMaintenanceKm - v.currentKm;
+          if (kmRemaining <= 500) isAlert = true;
+        }
+        if (v.nextMaintenanceDate) {
+          const nextDate = new Date(v.nextMaintenanceDate);
+          const today = new Date();
+          const diffDays = Math.ceil((nextDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays <= 7) isAlert = true; // Alert if within 7 days
+        }
+        return isAlert;
+      }).length;
+
       setVehicles(vData);
       setStats(prev => ({
         ...prev,
         totalVehicles: vData.length,
-        maintenanceCount: vData.filter(v => v.status === 'maintenance').length
+        maintenanceCount: vData.filter(v => v.status === 'maintenance').length,
+        maintenanceAlerts: alerts
       }));
     });
 
@@ -100,6 +128,17 @@ export function Dashboard() {
         }));
       }
     );
+
+    const unsubFueling = onSnapshot(collection(db, 'fueling'), (snap) => {
+      const fData = snap.docs.map(doc => doc.data() as Fueling);
+      const now = new Date();
+      const thisMonth = fData.filter(f => {
+        const fDate = new Date(f.date);
+        return fDate.getMonth() === now.getMonth() && fDate.getFullYear() === now.getFullYear();
+      });
+      const total = thisMonth.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+      setStats(prev => ({ ...prev, totalFuelSpent: total }));
+    });
 
     if (profile?.uid) {
       const unsubNotifications = onSnapshot(
@@ -138,6 +177,28 @@ export function Dashboard() {
     return acc;
   }, []);
 
+  const handleSaveFueling = async (data: Partial<Fueling>) => {
+    try {
+      await addDoc(collection(db, 'fueling'), {
+        ...data,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      // Update vehicle current KM
+      if (data.vehicleId && data.km) {
+        await updateDoc(doc(db, 'vehicles', data.vehicleId), {
+          currentKm: data.km,
+          updatedAt: serverTimestamp()
+        });
+      }
+      setIsFuelingModalOpen(false);
+    } catch (err) {
+      console.error('Error saving fueling:', err);
+      throw err;
+    }
+  };
+
   if (profile?.status === 'pending' || profile?.status === 'blocked') {
     return (
       <div className="h-[calc(100vh-160px)] flex flex-col items-center justify-center text-center p-8">
@@ -170,7 +231,7 @@ export function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {[
           { label: 'Total de Veículos', value: stats.totalVehicles, icon: Car, color: 'text-blue-600', border: 'border-l-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
           { label: 'Reservas Ativas', value: stats.activeReservations, icon: Calendar, color: 'text-emerald-600', border: 'border-l-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
@@ -182,6 +243,15 @@ export function Dashboard() {
             border: 'border-l-amber-500',
             bg: 'bg-amber-50 dark:bg-amber-500/10',
             onClick: (profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'maintenance') ? () => navigate('/maintenance') : undefined
+          },
+          { 
+            label: 'Abastecimento (Mês)', 
+            value: `R$ ${stats.totalFuelSpent.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`, 
+            icon: Fuel, 
+            color: 'text-purple-600', 
+            border: 'border-l-purple-500',
+            bg: 'bg-purple-50 dark:bg-purple-500/10',
+            onClick: () => navigate('/fuel')
           },
           { 
             label: 'Aguardando Aprovação', 
@@ -307,6 +377,64 @@ export function Dashboard() {
             <Car className="absolute -right-8 -bottom-8 text-emerald-500/20 w-48 h-48 rotate-12" />
           </div>
 
+          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm relative overflow-hidden group">
+            <div className="relative z-10">
+              <div className="w-12 h-12 bg-purple-50 dark:bg-purple-500/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Fuel className="text-purple-600" size={24} />
+              </div>
+              <h3 className="text-xl font-bold mb-2 dark:text-white">Abastecimento</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Registre o último abastecimento para manter o controle de consumo.</p>
+              <button 
+                onClick={() => setIsFuelingModalOpen(true)}
+                className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
+              >
+                <Plus size={18} />
+                Novo Registro
+              </button>
+            </div>
+            <Fuel className="absolute -right-8 -bottom-8 text-purple-500/5 w-48 h-48 -rotate-12 group-hover:rotate-0 transition-transform duration-500" />
+          </div>
+
+          {(profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'maintenance') && (
+            <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm relative overflow-hidden group">
+              <div className="relative z-10">
+                <div className="w-12 h-12 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <Building2 className="text-blue-600" size={24} />
+                </div>
+                <h3 className="text-xl font-bold mb-2 dark:text-white">Oficinas</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Gerencie os prestadores de serviço e oficinas credenciadas.</p>
+                <button 
+                  onClick={() => navigate('/workshops')}
+                  className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                >
+                  Ver Oficinas
+                </button>
+              </div>
+              <Building2 className="absolute -right-8 -bottom-8 text-blue-500/5 w-48 h-48 -rotate-12 group-hover:rotate-0 transition-transform duration-500" />
+            </div>
+          )}
+
+          {stats.maintenanceAlerts > 0 && (
+            <div className="bg-amber-50 dark:bg-amber-500/5 p-8 rounded-3xl border border-amber-200 dark:border-amber-500/20 shadow-sm">
+              <h3 className="text-lg font-bold mb-6 text-amber-600 dark:text-amber-500 flex items-center gap-2">
+                <AlertTriangle size={20} />
+                Alertas de Manutenção
+              </h3>
+              <div className="space-y-4">
+                {vehicles
+                  .filter(v => v.nextMaintenanceKm && (v.nextMaintenanceKm - v.currentKm <= 500))
+                  .map(v => (
+                    <div key={v.id} className="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-amber-100 dark:border-amber-500/10">
+                      <p className="text-xs font-bold dark:text-white mb-1">{v.brand} {v.model} ({v.plate})</p>
+                      <p className="text-[10px] text-amber-600 font-medium">
+                        Manutenção em {v.nextMaintenanceKm! - v.currentKm} km
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
             <h3 className="text-lg font-bold mb-6 dark:text-white">Status da Frota</h3>
             <div className="h-[200px]">
@@ -343,6 +471,18 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isFuelingModalOpen && (
+          <FuelingModal
+            isOpen={isFuelingModalOpen}
+            onClose={() => setIsFuelingModalOpen(false)}
+            onSave={handleSaveFueling}
+            vehicles={vehicles}
+            driverId={profile?.uid || ''}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

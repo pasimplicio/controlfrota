@@ -77,13 +77,81 @@
       "type": "object",
       "properties": {
         "vehicleId": { "type": "string" },
-        "type": { "type": "string" },
-        "date": { "type": "string" },
-        "problem": { "type": "string" },
+        "osNumber": { "type": "string" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "type": { "type": "string", "enum": ["preventive", "corrective", "cleaning", "other"] },
+        "status": { "type": "string", "enum": ["pending", "budgeting", "approved", "in-progress", "completed", "cancelled"] },
+        "description": { "type": "string" },
+        "scheduledDate": { "type": "string" },
+        "completedDate": { "type": "string" },
         "cost": { "type": "number" },
-        "status": { "type": "string" }
+        "kmAtMaintenance": { "type": "number" },
+        "workshopId": { "type": "string" },
+        "checkOutId": { "type": "string" },
+        "checkInId": { "type": "string" },
+        "documents": {
+          "type": "object",
+          "properties": {
+            "os": { "type": "string" },
+            "invoice": { "type": "string" },
+            "other": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
       },
-      "required": ["vehicleId", "type", "date", "status"]
+      "required": ["vehicleId", "type", "date", "status", "priority"]
+    },
+    "Workshop": {
+      "title": "Workshop",
+      "description": "Maintenance service provider",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "cnpj": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "specialties": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "phone", "address", "status"]
+    },
+    "MaintenanceBudget": {
+      "title": "MaintenanceBudget",
+      "description": "Budget for a maintenance service",
+      "type": "object",
+      "properties": {
+        "maintenanceId": { "type": "string" },
+        "workshopId": { "type": "string" },
+        "value": { "type": "number" },
+        "description": { "type": "string" },
+        "documentUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "approvedBy": { "type": "string" },
+        "approvedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["maintenanceId", "workshopId", "value", "status"]
+    },
+    "MaintenancePart": {
+      "title": "MaintenancePart",
+      "description": "Part used in maintenance",
+      "type": "object",
+      "properties": {
+        "maintenanceId": { "type": "string" },
+        "name": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "totalPrice": { "type": "number" },
+        "brand": { "type": "string" },
+        "warrantyDays": { "type": "number" }
+      },
+      "required": ["maintenanceId", "name", "quantity", "unitPrice", "totalPrice"]
     },
     "Fueling": {
       "title": "Fueling",
@@ -95,10 +163,25 @@
         "date": { "type": "string" },
         "km": { "type": "number" },
         "liters": { "type": "number" },
-        "cost": { "type": "number" },
-        "fuelType": { "type": "string" }
+        "pricePerLiter": { "type": "number" },
+        "totalValue": { "type": "number" },
+        "stationName": { "type": "string" },
+        "fuelType": { "type": "string" },
+        "receiptPhoto": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "latitude": { "type": "number" },
+            "longitude": { "type": "number" },
+            "address": { "type": "string" }
+          }
+        },
+        "consumption": { "type": "number" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
       },
-      "required": ["vehicleId", "driverId", "date", "km", "liters"]
+      "required": ["vehicleId", "driverId", "date", "km", "liters", "totalValue"]
     },
     "Unit": {
       "title": "Unit",
@@ -187,6 +270,9 @@
     "/vehicles": { "schema": "Vehicle", "description": "Fleet vehicles" },
     "/reservations": { "schema": "Reservation", "description": "Vehicle reservations" },
     "/maintenance": { "schema": "Maintenance", "description": "Maintenance logs" },
+    "/workshops": { "schema": "Workshop", "description": "Maintenance workshops" },
+    "/maintenance_budgets": { "schema": "MaintenanceBudget", "description": "Maintenance budgets" },
+    "/maintenance_parts": { "schema": "MaintenancePart", "description": "Maintenance parts history" },
     "/fueling": { "schema": "Fueling", "description": "Fueling logs" },
     "/units": { "schema": "Unit", "description": "Operational units" },
     "/notifications": { "schema": "Notification", "description": "User notifications" },

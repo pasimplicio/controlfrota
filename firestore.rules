@@ -1,68 +1,60 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    // Collection: users
-    // Fields: uid, name, email, role, unit, status
-    //
-    // Collection: vehicles
-    // Fields: plate, brand, model, status, unit, currentKm
-    //
-    // Collection: reservations
-    // Fields: vehicleId, driverId, status, startDate, endDate
-    // ===============================================================
-
     // Helper Functions
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function getUserData() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path) ? get(path).data : null;
-    }
-
     function isAdmin() {
-      let data = getUserData();
       return isAuthenticated() && (
         request.auth.token.email == 'pasimplicio@gmail.com' || 
         request.auth.token.email == 'admin@admin.com' ||
-        (data != null && data.role == 'admin')
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
     }
 
     function isManager() {
-      let data = getUserData();
-      return isAuthenticated() && data != null && data.role == 'manager';
-    }
-
-    function isDriver() {
-      let data = getUserData();
-      return isAuthenticated() && data != null && data.role == 'driver';
-    }
-
-    function isFinance() {
-      let data = getUserData();
-      return isAuthenticated() && data != null && data.role == 'finance';
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
     }
 
     function isMaintenance() {
-      let data = getUserData();
-      return isAuthenticated() && data != null && data.role == 'maintenance';
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'maintenance';
     }
 
-    function belongsToUnit(unit) {
-      let data = getUserData();
-      return isAuthenticated() && data != null && data.unit == unit;
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidFueling(data) {
+      return data.keys().hasAll(['vehicleId', 'driverId', 'date', 'km', 'liters', 'totalValue']) &&
+             data.vehicleId is string &&
+             data.driverId is string &&
+             data.date is string &&
+             data.km is number && data.km >= 0 &&
+             data.liters is number && data.liters > 0 &&
+             data.totalValue is number && data.totalValue >= 0;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'role', 'status']) &&
+             data.uid is string &&
+             data.name is string && data.name.size() > 0 &&
+             data.email is string && isValidEmail(data.email) &&
+             data.role in ['admin', 'manager', 'driver', 'finance', 'maintenance'] &&
+             data.status in ['active', 'inactive', 'blocked'];
     }
 
     // Rules
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || isManager());
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role != 'admin';
+      allow update: if (isAdmin() || isOwner(userId)) && isValidUser(request.resource.data) && 
+                      (isAdmin() || request.resource.data.role == resource.data.role);
       allow delete: if isAdmin();
     }
 
@@ -72,8 +64,6 @@ service cloud.firestore {
     }
 
     match /reservations/{resId} {
-      // Relaxed read to allow Dashboard and Reservations list queries to work for all roles
-      // Client-side filtering handles the view logic
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update: if isAdmin() || isManager() || 
@@ -86,9 +76,28 @@ service cloud.firestore {
       allow write: if isAdmin() || isManager() || isMaintenance();
     }
 
+    match /workshops/{wId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isManager() || isMaintenance();
+    }
+
+    match /maintenance_budgets/{bId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isManager() || isMaintenance();
+    }
+
+    match /maintenance_parts/{pId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isManager() || isMaintenance();
+    }
+
     match /fueling/{fId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidFueling(request.resource.data) && request.resource.data.driverId == request.auth.uid;
+      allow update: if (isAdmin() || isManager() || (isAuthenticated() && resource.data.driverId == request.auth.uid)) && 
+                      isValidFueling(request.resource.data) &&
+                      request.resource.data.driverId == resource.data.driverId;
+      allow delete: if isAdmin() || isManager();
     }
 
     match /units/{unitId} {
@@ -98,7 +107,7 @@ service cloud.firestore {
 
     match /notifications/{nId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated(); // Allow drivers to notify admins/managers
+      allow create: if isAuthenticated();
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }

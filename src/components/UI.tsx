@@ -6,9 +6,12 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function Card({ children, className }: { children: React.ReactNode, className?: string }) {
+export function Card({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm", className)}>
+    <div 
+      className={cn("bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm", className)}
+      {...props}
+    >
       {children}
     </div>
   );

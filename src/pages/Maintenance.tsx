@@ -25,10 +25,12 @@ import {
   LayoutGrid,
   List,
   Gauge,
-  DollarSign
+  DollarSign,
+  Building2,
+  Flag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Maintenance, Vehicle, UserProfile, Inspection } from '../types';
+import { Maintenance, Vehicle, UserProfile, Inspection, Workshop } from '../types';
 import { Card, StatusBadge, Button } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
 import { format, parseISO } from 'date-fns';
@@ -42,6 +44,7 @@ export function MaintenancePage() {
   const { user, profile } = useAuth();
   const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,9 +75,15 @@ export function MaintenancePage() {
       setVehicles(vData);
     });
 
+    const unsubWorkshops = onSnapshot(collection(db, 'workshops'), (snap) => {
+      const wData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workshop));
+      setWorkshops(wData);
+    });
+
     return () => {
       unsubscribe();
       unsubVehicles();
+      unsubWorkshops();
     };
   }, []);
 
@@ -92,6 +101,25 @@ export function MaintenancePage() {
           updatedAt: serverTimestamp()
         });
       }
+
+      // Automatically update vehicle status based on maintenance status
+      const vehicleUpdate: any = {
+        updatedAt: serverTimestamp()
+      };
+
+      if (mData.status === 'in-progress' || mData.status === 'waiting-parts') {
+        vehicleUpdate.status = 'maintenance';
+      } else if (mData.status === 'completed') {
+        vehicleUpdate.status = 'active';
+        if (mData.kmAtMaintenance) vehicleUpdate.lastMaintenanceKm = mData.kmAtMaintenance;
+        if (mData.nextMaintenanceKm) vehicleUpdate.nextMaintenanceKm = mData.nextMaintenanceKm;
+        if (mData.nextMaintenanceDate) vehicleUpdate.nextMaintenanceDate = mData.nextMaintenanceDate;
+      }
+
+      if (Object.keys(vehicleUpdate).length > 1) {
+        await updateDoc(doc(db, 'vehicles', mData.vehicleId), vehicleUpdate);
+      }
+
       setIsModalOpen(false);
       setEditingMaintenance(null);
     } catch (err) {
@@ -142,6 +170,13 @@ export function MaintenancePage() {
         maintUpdate.checkInId = inspectionRef.id;
         maintUpdate.completedDate = new Date().toISOString();
         vehicleUpdate.status = 'active';
+        vehicleUpdate.lastMaintenanceKm = inspectionData.km;
+        if (selectedMaintForInspection.nextMaintenanceKm) {
+          vehicleUpdate.nextMaintenanceKm = selectedMaintForInspection.nextMaintenanceKm;
+        }
+        if (selectedMaintForInspection.nextMaintenanceDate) {
+          vehicleUpdate.nextMaintenanceDate = selectedMaintForInspection.nextMaintenanceDate;
+        }
       }
 
       await updateDoc(doc(db, 'maintenance', selectedMaintForInspection.id), maintUpdate);
@@ -168,7 +203,10 @@ export function MaintenancePage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400';
+      case 'scheduled': return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400';
       case 'in-progress': return 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400';
+      case 'waiting-parts': return 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400';
+      case 'waiting-approval': return 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400';
       case 'completed': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400';
       case 'cancelled': return 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400';
       default: return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-500/20 dark:text-zinc-400';
@@ -178,10 +216,23 @@ export function MaintenancePage() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'pending': return 'Pendente';
+      case 'scheduled': return 'Agendada';
       case 'in-progress': return 'Em Execução';
+      case 'waiting-parts': return 'Aguardando Peças';
+      case 'waiting-approval': return 'Aguardando Aprovação';
       case 'completed': return 'Concluída';
       case 'cancelled': return 'Cancelada';
       default: return status;
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'low': return 'text-zinc-400';
+      case 'medium': return 'text-blue-500';
+      case 'high': return 'text-orange-500';
+      case 'urgent': return 'text-red-500';
+      default: return 'text-zinc-400';
     }
   };
 
@@ -228,6 +279,7 @@ export function MaintenancePage() {
             ) : (
               filteredMaintenances.map((m) => {
                 const vehicle = vehicles.find(v => v.id === m.vehicleId);
+                const workshop = workshops.find(w => w.id === m.workshopId);
                 return (
                   <motion.div
                     key={m.id}
@@ -236,10 +288,27 @@ export function MaintenancePage() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                   >
-                    <Card className="group hover:shadow-xl transition-all duration-300 border-l-4 border-l-amber-500 h-full flex flex-col relative overflow-hidden">
+                    <Card className={`group hover:shadow-xl transition-all duration-300 border-l-4 h-full flex flex-col relative overflow-hidden ${
+                      m.priority === 'urgent' ? 'border-l-red-500' : 
+                      m.priority === 'high' ? 'border-l-orange-500' : 
+                      m.priority === 'medium' ? 'border-l-blue-500' : 'border-l-zinc-300'
+                    }`}>
                       <div className="flex justify-between items-start mb-4">
-                        <div className="w-12 h-12 bg-zinc-50 dark:bg-zinc-800 rounded-2xl flex items-center justify-center group-hover:bg-amber-50 dark:group-hover:bg-amber-500/10 transition-colors">
-                          <Wrench className="text-zinc-400 group-hover:text-amber-500 transition-colors" size={24} />
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-zinc-50 dark:bg-zinc-800 rounded-2xl flex items-center justify-center group-hover:bg-amber-50 dark:group-hover:bg-amber-500/10 transition-colors">
+                            <Wrench className="text-zinc-400 group-hover:text-amber-500 transition-colors" size={24} />
+                          </div>
+                          {m.osNumber && (
+                            <div>
+                              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none mb-1">OS #{m.osNumber}</p>
+                              <div className="flex items-center gap-1">
+                                <Flag size={10} className={getPriorityColor(m.priority)} />
+                                <span className={`text-[10px] font-bold uppercase ${getPriorityColor(m.priority)}`}>
+                                  {m.priority === 'low' ? 'Baixa' : m.priority === 'medium' ? 'Média' : m.priority === 'high' ? 'Alta' : 'Urgente'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(m.status)}`}>
                           {getStatusLabel(m.status)}
@@ -254,22 +323,38 @@ export function MaintenancePage() {
                         </div>
                         
                         <div className="space-y-3 mb-6">
-                          <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                            <AlertCircle size={14} className="text-zinc-400" />
-                            <span>{m.description}</span>
+                          <div className="flex items-start gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                            <AlertCircle size={14} className="text-zinc-400 mt-0.5 shrink-0" />
+                            <span className="line-clamp-2">{m.description}</span>
                           </div>
+                          {workshop && (
+                            <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                              <Building2 size={14} className="text-zinc-400 shrink-0" />
+                              <span className="font-bold text-emerald-600 dark:text-emerald-400">{workshop.name}</span>
+                            </div>
+                          )}
                           <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                            <CalendarIcon size={14} className="text-zinc-400" />
+                            <CalendarIcon size={14} className="text-zinc-400 shrink-0" />
                             <span>{format(parseISO(m.scheduledDate), "d 'de' MMM, HH:mm", { locale: ptBR })}</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                            <Gauge size={14} className="text-zinc-400" />
+                            <Gauge size={14} className="text-zinc-400 shrink-0" />
                             <span>KM previsto: {m.kmAtMaintenance}</span>
                           </div>
                           {m.cost > 0 && (
                             <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                              <DollarSign size={14} className="text-zinc-400" />
-                              <span>Custo: R$ {m.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <DollarSign size={14} className="text-zinc-400 shrink-0" />
+                              <span className="font-bold">Total: R$ {m.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          {m.parts && m.parts.length > 0 && (
+                            <div className="flex items-center gap-2 text-[10px] text-zinc-400 italic">
+                              <span>{m.parts.length} {m.parts.length === 1 ? 'peça registrada' : 'peças registradas'}</span>
+                            </div>
+                          )}
+                          {m.budgets && m.budgets.length > 0 && (
+                            <div className="flex items-center gap-2 text-[10px] text-blue-400 italic">
+                              <span>{m.budgets.length} {m.budgets.length === 1 ? 'orçamento registrado' : 'orçamentos registrados'}</span>
                             </div>
                           )}
                         </div>

@@ -12,6 +12,8 @@ import { Units } from './pages/Units';
 import { SettingsPage } from './pages/Settings';
 import { Approvals } from './pages/Approvals';
 import { MaintenancePage } from './pages/Maintenance';
+import { WorkshopsPage } from './pages/Workshops';
+import { FuelingPage } from './pages/Fueling';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -102,7 +104,12 @@ function App() {
                   <MaintenancePage />
                 </RoleRoute>
               } />
-              <Route path="fuel" element={<PlaceholderPage title="Abastecimento" />} />
+              <Route path="workshops" element={
+                <RoleRoute allowedRoles={['admin', 'manager', 'maintenance']}>
+                  <WorkshopsPage />
+                </RoleRoute>
+              } />
+              <Route path="fuel" element={<FuelingPage />} />
               <Route path="fines" element={<PlaceholderPage title="Multas" />} />
             </Route>
 

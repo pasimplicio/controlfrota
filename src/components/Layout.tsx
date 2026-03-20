@@ -78,6 +78,7 @@ export function Layout() {
     { icon: Car, label: 'Veículos', path: '/vehicles' },
     { icon: Calendar, label: 'Reservas', path: '/reservations' },
     { icon: Wrench, label: 'Manutenção', path: '/maintenance' },
+    { icon: Building2, label: 'Oficinas', path: '/workshops' },
     { icon: Fuel, label: 'Abastecimento', path: '/fuel' },
     { icon: AlertTriangle, label: 'Multas', path: '/fines' },
   ];

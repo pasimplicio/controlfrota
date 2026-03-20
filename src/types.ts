@@ -49,6 +49,9 @@ export interface Vehicle {
   color: string;
   fuelType: string;
   currentKm: number;
+  lastMaintenanceKm?: number;
+  nextMaintenanceKm?: number;
+  nextMaintenanceDate?: string;
   status: 'active' | 'maintenance' | 'inactive' | 'reserved';
   type: string;
   category?: string;
@@ -115,18 +118,69 @@ export interface Inspection {
   createdAt: any;
 }
 
+export interface Workshop {
+  id: string;
+  name: string;
+  cnpj?: string;
+  phone: string;
+  email?: string;
+  address: string;
+  city: string;
+  state: string;
+  specialties: string[];
+  status: 'active' | 'inactive';
+  createdAt: any;
+}
+
+export interface MaintenancePart {
+  id: string;
+  maintenanceId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  brand?: string;
+  warrantyDays?: number;
+}
+
+export interface MaintenanceBudget {
+  id: string;
+  maintenanceId: string;
+  workshopId: string;
+  value: number;
+  description: string;
+  documentUrl?: string; // PDF or image of the budget
+  status: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string;
+  approvedAt?: any;
+  createdAt: any;
+}
+
 export interface Maintenance {
   id: string;
   vehicleId: string;
+  osNumber?: string; // Service Order Number
+  priority: 'low' | 'medium' | 'high' | 'urgent';
   type: 'preventive' | 'corrective' | 'cleaning' | 'other';
-  status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'scheduled' | 'in-progress' | 'waiting-parts' | 'waiting-approval' | 'completed' | 'cancelled';
   description: string;
   scheduledDate: string;
   completedDate?: string;
   cost?: number;
   kmAtMaintenance: number;
+  nextMaintenanceKm?: number;
+  nextMaintenanceDate?: string;
+  workshopId?: string;
   checkOutId?: string;
   checkInId?: string;
+  documents?: {
+    name: string;
+    url: string;
+    type: 'os' | 'invoice' | 'other';
+    uploadedAt: string;
+  }[];
+  parts?: MaintenancePart[];
+  budgets?: MaintenanceBudget[];
   notes?: string;
   createdAt: any;
   updatedAt: any;
@@ -141,6 +195,29 @@ export interface Notification {
   read: boolean;
   createdAt: any;
   link?: string;
+}
+
+export interface Fueling {
+  id: string;
+  vehicleId: string;
+  driverId: string;
+  date: string;
+  km: number;
+  liters: number;
+  pricePerLiter: number;
+  totalValue: number;
+  stationName: string;
+  fuelType: string;
+  receiptPhoto?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+  };
+  consumption?: number; // km/l calculated based on previous fueling
+  notes?: string;
+  createdAt: any;
+  updatedAt: any;
 }
 
 export interface Settings {
