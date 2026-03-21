@@ -32,6 +32,8 @@ import { ConfirmModal } from '../components/Modals/ConfirmModal';
 import { registerUserAuth } from '../services/authService';
 import { setDoc } from 'firebase/firestore';
 
+import { handleFirestoreError, OperationType } from '../services/errorService';
+
 export function Users() {
   const { profile } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -53,6 +55,8 @@ export function Users() {
       const uData = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
       setUsers(uData);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'users');
     });
     return () => unsubscribe();
   }, []);
@@ -64,7 +68,7 @@ export function Users() {
         updatedAt: serverTimestamp()
       });
     } catch (err) {
-      console.error('Error updating role:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
     }
   };
 
@@ -75,7 +79,7 @@ export function Users() {
         updatedAt: serverTimestamp()
       });
     } catch (err) {
-      console.error('Error updating hierarchy:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
     }
   };
 
@@ -86,7 +90,7 @@ export function Users() {
         updatedAt: serverTimestamp()
       });
     } catch (err) {
-      console.error('Error updating status:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
     }
   };
 
@@ -99,7 +103,7 @@ export function Users() {
         try {
           await deleteDoc(doc(db, 'users', uid));
         } catch (err) {
-          console.error('Error deleting user:', err);
+          handleFirestoreError(err, OperationType.DELETE, `users/${uid}`);
           setConfirmConfig({
             title: 'Erro',
             message: 'Erro ao excluir usuário. Verifique suas permissões.',
@@ -152,16 +156,26 @@ export function Users() {
         const uid = await registerUserAuth(data.email!, password);
         
         // Create Firestore document
-        await setDoc(doc(db, 'users', uid), {
-          ...profileData,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
+        try {
+          await setDoc(doc(db, 'users', uid), {
+            ...profileData,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.CREATE, `users/${uid}`);
+          throw err;
+        }
       } else {
-        await updateDoc(doc(db, 'users', editingUser.uid), {
-          ...profileData,
-          updatedAt: serverTimestamp()
-        });
+        try {
+          await updateDoc(doc(db, 'users', editingUser.uid), {
+            ...profileData,
+            updatedAt: serverTimestamp()
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.UPDATE, `users/${editingUser.uid}`);
+          throw err;
+        }
       }
     } catch (err: any) {
       console.error('Error saving user:', err);

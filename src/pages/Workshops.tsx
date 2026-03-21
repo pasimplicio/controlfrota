@@ -28,6 +28,8 @@ import { Workshop } from '../types';
 import { Button, Card, StatusBadge } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
 
+import { handleFirestoreError, OperationType } from '../services/errorService';
+
 export function WorkshopsPage() {
   const { profile } = useAuth();
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
@@ -41,6 +43,8 @@ export function WorkshopsPage() {
     const unsub = onSnapshot(q, (snap) => {
       setWorkshops(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workshop)));
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'workshops');
     });
     return unsub;
   }, []);

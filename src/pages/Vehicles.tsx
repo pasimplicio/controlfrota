@@ -29,6 +29,8 @@ import { useAuth } from '../context/AuthContext';
 import { VehicleModal } from '../components/Modals/VehicleModal';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
 
+import { handleFirestoreError, OperationType } from '../services/errorService';
+
 export function Vehicles() {
   const { profile } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -50,6 +52,8 @@ export function Vehicles() {
       const vData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vehicle));
       setVehicles(vData);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'vehicles');
     });
     return () => unsubscribe();
   }, []);
@@ -63,7 +67,7 @@ export function Vehicles() {
         try {
           await deleteDoc(doc(db, 'vehicles', id));
         } catch (err) {
-          console.error('Error deleting vehicle:', err);
+          handleFirestoreError(err, OperationType.DELETE, `vehicles/${id}`);
           setConfirmConfig({
             title: 'Erro',
             message: 'Erro ao excluir veículo. Verifique suas permissões.',
@@ -94,16 +98,26 @@ export function Vehicles() {
       }
 
       if (editingVehicle) {
-        await updateDoc(doc(db, 'vehicles', editingVehicle.id), {
-          ...data,
-          updatedAt: serverTimestamp()
-        });
+        try {
+          await updateDoc(doc(db, 'vehicles', editingVehicle.id), {
+            ...data,
+            updatedAt: serverTimestamp()
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.UPDATE, `vehicles/${editingVehicle.id}`);
+          throw err;
+        }
       } else {
-        await addDoc(collection(db, 'vehicles'), {
-          ...data,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
+        try {
+          await addDoc(collection(db, 'vehicles'), {
+            ...data,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.CREATE, 'vehicles');
+          throw err;
+        }
       }
     } catch (err) {
       console.error('Error saving vehicle:', err);

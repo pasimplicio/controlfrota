@@ -6,16 +6,25 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
+    function isDefaultAdmin() {
       return isAuthenticated() && (
         request.auth.token.email == 'pasimplicio@gmail.com' || 
-        request.auth.token.email == 'admin@admin.com' ||
+        request.auth.token.email == 'admin@admin.com'
+      );
+    }
+
+    function isAdmin() {
+      return isDefaultAdmin() || (
+        isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
     }
 
     function isManager() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
     }
 
     function isMaintenance() {
@@ -45,16 +54,15 @@ service cloud.firestore {
              data.uid is string &&
              data.name is string && data.name.size() > 0 &&
              data.email is string && isValidEmail(data.email) &&
-             data.role in ['admin', 'manager', 'driver', 'finance', 'maintenance'] &&
-             data.status in ['active', 'inactive', 'blocked'];
+             data.role in ['admin', 'manager', 'driver', 'finance', 'maintenance', 'pending'] &&
+             data.status in ['active', 'inactive', 'blocked', 'pending'];
     }
 
     // Rules
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || isManager());
-      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role != 'admin';
-      allow update: if (isAdmin() || isOwner(userId)) && isValidUser(request.resource.data) && 
-                      (isAdmin() || request.resource.data.role == resource.data.role);
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isManager());
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin()) && isValidUser(request.resource.data);
       allow delete: if isAdmin();
     }
 

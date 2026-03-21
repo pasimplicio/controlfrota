@@ -39,6 +39,7 @@ import { MaintenanceModal } from '../components/Modals/MaintenanceModal';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
 import { InspectionModal } from '../components/Modals/InspectionModal';
 import { createNotification } from '../services/notificationService';
+import { handleFirestoreError, OperationType } from '../services/errorService';
 
 export function MaintenancePage() {
   const { user, profile } = useAuth();
@@ -68,16 +69,22 @@ export function MaintenancePage() {
       const mData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Maintenance));
       setMaintenances(mData);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'maintenance');
     });
 
     const unsubVehicles = onSnapshot(collection(db, 'vehicles'), (snap) => {
       const vData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vehicle));
       setVehicles(vData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'vehicles');
     });
 
     const unsubWorkshops = onSnapshot(collection(db, 'workshops'), (snap) => {
       const wData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workshop));
       setWorkshops(wData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'workshops');
     });
 
     return () => {
@@ -123,7 +130,7 @@ export function MaintenancePage() {
       setIsModalOpen(false);
       setEditingMaintenance(null);
     } catch (err) {
-      console.error('Error saving maintenance:', err);
+      handleFirestoreError(err, editingMaintenance ? OperationType.UPDATE : OperationType.CREATE, editingMaintenance ? `maintenance/${editingMaintenance.id}` : 'maintenance');
     }
   };
 
@@ -137,7 +144,7 @@ export function MaintenancePage() {
           await deleteDoc(doc(db, 'maintenance', id));
           setConfirmConfig(null);
         } catch (err) {
-          console.error('Error deleting maintenance:', err);
+          handleFirestoreError(err, OperationType.DELETE, `maintenance/${id}`);
         }
       }
     });
@@ -185,7 +192,7 @@ export function MaintenancePage() {
       setIsInspectionModalOpen(false);
       setSelectedMaintForInspection(null);
     } catch (err) {
-      console.error('Error saving inspection:', err);
+      handleFirestoreError(err, OperationType.CREATE, 'inspections');
       throw err;
     }
   };

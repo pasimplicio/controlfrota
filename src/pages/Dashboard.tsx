@@ -45,6 +45,7 @@ import { Vehicle, Reservation, UserProfile, Notification, Fueling } from '../typ
 import { useAuth } from '../context/AuthContext';
 import { FuelingModal } from '../components/Modals/FuelingModal';
 import { AnimatePresence } from 'motion/react';
+import { handleFirestoreError, OperationType } from '../services/errorService';
 
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
 
@@ -74,9 +75,14 @@ export function Dashboard() {
   const [isFuelingModalOpen, setIsFuelingModalOpen] = useState(false);
 
   useEffect(() => {
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
-      setUsers(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
-    });
+    let unsubUsers: (() => void) | undefined;
+    if (profile?.role === 'admin' || profile?.role === 'manager') {
+      unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+        setUsers(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'users');
+      });
+    }
 
     const unsubVehicles = onSnapshot(collection(db, 'vehicles'), (snap) => {
       let vData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vehicle));
@@ -108,6 +114,8 @@ export function Dashboard() {
         maintenanceCount: vData.filter(v => v.status === 'maintenance').length,
         maintenanceAlerts: alerts
       }));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'vehicles');
     });
 
     const unsubReservations = onSnapshot(
@@ -126,6 +134,8 @@ export function Dashboard() {
           activeReservations: rData.filter(r => r.status === 'active' || r.status === 'approved').length,
           pendingApprovals: rData.filter(r => r.status === 'pending').length
         }));
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'reservations');
       }
     );
 
@@ -138,10 +148,13 @@ export function Dashboard() {
       });
       const total = thisMonth.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
       setStats(prev => ({ ...prev, totalFuelSpent: total }));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'fueling');
     });
 
+    let unsubNotifications: (() => void) | undefined;
     if (profile?.uid) {
-      const unsubNotifications = onSnapshot(
+      unsubNotifications = onSnapshot(
         query(
           collection(db, 'notifications'), 
           where('userId', '==', profile.uid), 
@@ -150,20 +163,18 @@ export function Dashboard() {
         ),
         (snap) => {
           setNotifications(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification)));
+        }, (error) => {
+          handleFirestoreError(error, OperationType.GET, 'notifications');
         }
       );
-      return () => {
-        unsubUsers();
-        unsubVehicles();
-        unsubReservations();
-        unsubNotifications();
-      };
     }
 
     return () => {
-      unsubUsers();
+      if (unsubUsers) unsubUsers();
       unsubVehicles();
       unsubReservations();
+      unsubFueling();
+      if (unsubNotifications) unsubNotifications();
     };
   }, [profile]);
 
@@ -179,18 +190,28 @@ export function Dashboard() {
 
   const handleSaveFueling = async (data: Partial<Fueling>) => {
     try {
-      await addDoc(collection(db, 'fueling'), {
-        ...data,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+      try {
+        await addDoc(collection(db, 'fueling'), {
+          ...data,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.CREATE, 'fueling');
+        throw err;
+      }
 
       // Update vehicle current KM
       if (data.vehicleId && data.km) {
-        await updateDoc(doc(db, 'vehicles', data.vehicleId), {
-          currentKm: data.km,
-          updatedAt: serverTimestamp()
-        });
+        try {
+          await updateDoc(doc(db, 'vehicles', data.vehicleId), {
+            currentKm: data.km,
+            updatedAt: serverTimestamp()
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.UPDATE, `vehicles/${data.vehicleId}`);
+          throw err;
+        }
       }
       setIsFuelingModalOpen(false);
     } catch (err) {

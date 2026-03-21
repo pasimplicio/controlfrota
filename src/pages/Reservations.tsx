@@ -41,6 +41,7 @@ import { ConfirmModal } from '../components/Modals/ConfirmModal';
 import { InspectionModal } from '../components/Modals/InspectionModal';
 import { createNotification } from '../services/notificationService';
 import { Inspection } from '../types';
+import { handleFirestoreError, OperationType } from '../services/errorService';
 
 export function Reservations() {
   const { user, profile } = useAuth();
@@ -73,24 +74,33 @@ export function Reservations() {
       const rData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Reservation));
       setReservations(rData);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'reservations');
     });
 
     const unsubVehicles = onSnapshot(collection(db, 'vehicles'), (snap) => {
       const vData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vehicle));
       setVehicles(vData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'vehicles');
     });
 
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
-      const uData = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-      setUsers(uData);
-    });
+    let unsubUsers: (() => void) | undefined;
+    if (profile?.role === 'admin' || profile?.role === 'manager') {
+      unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+        const uData = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+        setUsers(uData);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'users');
+      });
+    }
 
     return () => {
       unsubscribe();
       unsubVehicles();
-      unsubUsers();
+      if (unsubUsers) unsubUsers();
     };
-  }, []);
+  }, [profile]);
 
   useEffect(() => {
     if (location.state?.openModal) {
@@ -109,7 +119,7 @@ export function Reservations() {
         try {
           await deleteDoc(doc(db, 'reservations', id));
         } catch (err) {
-          console.error('Error deleting reservation:', err);
+          handleFirestoreError(err, OperationType.DELETE, `reservations/${id}`);
           setConfirmConfig({
             title: 'Erro',
             message: 'Erro ao excluir reserva. Verifique suas permissões.',
@@ -130,7 +140,7 @@ export function Reservations() {
           updatedAt: serverTimestamp()
         });
       } else {
-        const docRef = await addDoc(collection(db, 'reservations'), {
+        await addDoc(collection(db, 'reservations'), {
           ...data,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -153,7 +163,7 @@ export function Reservations() {
         });
       }
     } catch (err) {
-      console.error('Error saving reservation:', err);
+      handleFirestoreError(err, editingReservation ? OperationType.UPDATE : OperationType.CREATE, editingReservation ? `reservations/${editingReservation.id}` : 'reservations');
       throw err;
     }
   };
@@ -225,7 +235,7 @@ export function Reservations() {
 
       await approveAction();
     } catch (err) {
-      console.error('Error approving reservation:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `reservations/${id}`);
     }
   };
 
@@ -257,7 +267,7 @@ export function Reservations() {
         link: '/reservations'
       });
     } catch (err) {
-      console.error('Error rejecting reservation:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `reservations/${id}`);
     }
   };
 
@@ -299,7 +309,7 @@ export function Reservations() {
       setIsInspectionModalOpen(false);
       setSelectedResForInspection(null);
     } catch (err) {
-      console.error('Error saving inspection:', err);
+      handleFirestoreError(err, OperationType.CREATE, 'inspections');
       throw err;
     }
   };

@@ -27,6 +27,8 @@ import { Card, StatusBadge, Button } from '../components/UI';
 import { UnitModal } from '../components/Modals/UnitModal';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
 
+import { handleFirestoreError, OperationType } from '../services/errorService';
+
 export function Units() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,6 +49,8 @@ export function Units() {
       const uData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Unit));
       setUnits(uData);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'units');
     });
     return () => unsubscribe();
   }, []);

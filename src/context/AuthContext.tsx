@@ -21,34 +21,50 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+import { handleFirestoreError, OperationType } from '../services/errorService';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       
+      // Clean up previous profile listener if it exists
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       if (firebaseUser) {
         // Listen to profile changes
         const profileRef = doc(db, 'users', firebaseUser.uid);
-        const unsubscribeProfile = onSnapshot(profileRef, (docSnap) => {
+        unsubscribeProfile = onSnapshot(profileRef, (docSnap) => {
           if (docSnap.exists()) {
             setProfile({ uid: firebaseUser.uid, ...docSnap.data() } as UserProfile);
           } else {
             setProfile(null);
           }
           setLoading(false);
+        }, (error) => {
+          console.error('Profile snapshot error:', error);
+          handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
+          setLoading(false);
         });
-        return () => unsubscribeProfile();
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
 
   const logout = async () => {

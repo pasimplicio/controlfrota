@@ -8,6 +8,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { handleFirestoreError, OperationType } from '../../services/errorService';
+
 export function NotificationCenter() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -26,6 +28,8 @@ export function NotificationCenter() {
     const unsubscribe = onSnapshot(q, (snap) => {
       const nData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
       setNotifications(nData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'notifications');
     });
 
     return () => unsubscribe();
@@ -48,7 +52,7 @@ export function NotificationCenter() {
     try {
       await updateDoc(doc(db, 'notifications', id), { read: true });
     } catch (err) {
-      console.error('Error marking notification as read:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `notifications/${id}`);
     }
   };
 
@@ -60,7 +64,7 @@ export function NotificationCenter() {
       });
       await batch.commit();
     } catch (err) {
-      console.error('Error marking all as read:', err);
+      handleFirestoreError(err, OperationType.UPDATE, 'notifications');
     }
   };
 
@@ -68,7 +72,7 @@ export function NotificationCenter() {
     try {
       await deleteDoc(doc(db, 'notifications', id));
     } catch (err) {
-      console.error('Error deleting notification:', err);
+      handleFirestoreError(err, OperationType.DELETE, `notifications/${id}`);
     }
   };
 
@@ -80,7 +84,7 @@ export function NotificationCenter() {
       });
       await batch.commit();
     } catch (err) {
-      console.error('Error clearing notifications:', err);
+      handleFirestoreError(err, OperationType.DELETE, 'notifications');
     }
   };
 

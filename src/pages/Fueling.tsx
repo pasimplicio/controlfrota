@@ -50,6 +50,8 @@ import { Button, Card, StatusBadge } from '../components/UI';
 import { FuelingModal } from '../components/Modals/FuelingModal';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
 
+import { handleFirestoreError, OperationType } from '../services/errorService';
+
 export function FuelingPage() {
   const { profile } = useAuth();
   const [fuelingRecords, setFuelingRecords] = useState<Fueling[]>([]);
@@ -66,24 +68,33 @@ export function FuelingPage() {
   useEffect(() => {
     const unsubVehicles = onSnapshot(collection(db, 'vehicles'), (snap) => {
       setVehicles(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vehicle)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'vehicles');
     });
 
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
-      setUsers(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
-    });
+    let unsubUsers: (() => void) | undefined;
+    if (profile?.role === 'admin' || profile?.role === 'manager') {
+      unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+        setUsers(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'users');
+      });
+    }
 
     const q = query(collection(db, 'fueling'), orderBy('date', 'desc'));
     const unsubFueling = onSnapshot(q, (snap) => {
       setFuelingRecords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Fueling)));
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'fueling');
     });
 
     return () => {
       unsubVehicles();
-      unsubUsers();
+      if (unsubUsers) unsubUsers();
       unsubFueling();
     };
-  }, []);
+  }, [profile]);
 
   const handleSaveFueling = async (data: Partial<Fueling>) => {
     try {
@@ -108,7 +119,7 @@ export function FuelingPage() {
         }
       }
     } catch (err) {
-      console.error('Error saving fueling:', err);
+      handleFirestoreError(err, editingFueling ? OperationType.UPDATE : OperationType.CREATE, editingFueling ? `fueling/${editingFueling.id}` : 'fueling');
       throw err;
     }
   };
@@ -119,7 +130,7 @@ export function FuelingPage() {
       await deleteDoc(doc(db, 'fueling', confirmDelete));
       setConfirmDelete(null);
     } catch (err) {
-      console.error('Error deleting fueling:', err);
+      handleFirestoreError(err, OperationType.DELETE, `fueling/${confirmDelete}`);
     }
   };
 

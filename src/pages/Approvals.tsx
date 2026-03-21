@@ -31,6 +31,8 @@ import { ptBR } from 'date-fns/locale';
 import { createNotification } from '../services/notificationService';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
 
+import { handleFirestoreError, OperationType } from '../services/errorService';
+
 export function Approvals() {
   const { user, profile } = useAuth();
   const [pendingReservations, setPendingReservations] = useState<Reservation[]>([]);
@@ -58,6 +60,8 @@ export function Approvals() {
       }
       setPendingReservations(data);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'reservations');
     });
 
     // Listen for recent history (last 10 approved/rejected)
@@ -73,14 +77,20 @@ export function Approvals() {
         data = data.filter(r => r.unit === profile.unit);
       }
       setHistoryReservations(data.slice(0, 10));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'reservations');
     });
 
     const unsubVehicles = onSnapshot(collection(db, 'vehicles'), (snap) => {
       setVehicles(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vehicle)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'vehicles');
     });
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
       setUsers(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'users');
     });
 
     return () => {
