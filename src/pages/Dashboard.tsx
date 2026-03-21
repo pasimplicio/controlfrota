@@ -242,11 +242,11 @@ export function Dashboard() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold dark:text-white">Dashboard</h1>
-          <p className="text-zinc-500 dark:text-zinc-400">Bem-vindo ao sistema de gestão de frota.</p>
+          <h1 className="text-xl font-bold dark:text-white">Dashboard</h1>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Bem-vindo ao sistema de gestão de frota.</p>
         </div>
-        <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <Clock size={16} className="text-emerald-500" />
+        <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+          <Clock size={14} className="text-emerald-500" />
           {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
         </div>
       </div>
@@ -290,25 +290,25 @@ export function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
             onClick={stat.onClick}
-            className={`bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 border-l-4 ${stat.border} shadow-sm hover:shadow-md transition-all ${stat.onClick ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : ''}`}
+            className={`bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 border-l-4 ${stat.border} shadow-sm hover:shadow-md transition-all ${stat.onClick ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : ''}`}
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className={`p-3 ${stat.bg} rounded-2xl`}>
-                <stat.icon className={stat.color} size={24} />
+            <div className="flex items-center justify-between mb-3">
+              <div className={`p-2 ${stat.bg} rounded-xl`}>
+                <stat.icon className={stat.color} size={20} />
               </div>
             </div>
-            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">{stat.label}</p>
-            <h3 className="text-3xl font-bold dark:text-white">{stat.value}</h3>
+            <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-0.5">{stat.label}</p>
+            <h3 className="text-xl font-bold dark:text-white">{stat.value}</h3>
           </motion.div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Charts */}
-        <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-            <h3 className="text-lg font-bold mb-6 dark:text-white">Distribuição por Tipo</h3>
-            <div className="h-[300px]">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <h3 className="text-base font-bold mb-4 dark:text-white">Distribuição por Tipo</h3>
+            <div className="h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={vehicleTypeData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
@@ -324,14 +324,14 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold dark:text-white">Reservas Recentes</h3>
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold dark:text-white">Reservas Recentes</h3>
               <button 
                 onClick={() => navigate('/reservations')}
-                className="text-sm font-bold text-emerald-600 hover:underline flex items-center gap-1"
+                className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-1"
               >
-                Ver todas <ChevronRight size={16} />
+                Ver todas <ChevronRight size={14} />
               </button>
             </div>
             <div className="space-y-4">
@@ -366,11 +366,11 @@ export function Dashboard() {
         </div>
 
         {/* Sidebar Info */}
-        <div className="space-y-8">
+        <div className="space-y-6">
           {notifications.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-              <h3 className="text-lg font-bold mb-6 dark:text-white flex items-center gap-2">
-                <Bell size={20} className="text-emerald-500" />
+            <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+              <h3 className="text-base font-bold mb-4 dark:text-white flex items-center gap-2">
+                <Bell size={18} className="text-emerald-500" />
                 Notificações
               </h3>
               <div className="space-y-4">
@@ -384,61 +384,61 @@ export function Dashboard() {
             </div>
           )}
 
-          <div className="bg-emerald-600 p-8 rounded-3xl text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden">
+          <div className="bg-emerald-600 p-6 rounded-2xl text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden">
             <div className="relative z-10">
-              <h3 className="text-xl font-bold mb-2">Pronto para sair?</h3>
-              <p className="text-emerald-100 text-sm mb-6">Reserve um veículo agora de forma rápida e segura.</p>
+              <h3 className="text-lg font-bold mb-1">Pronto para sair?</h3>
+              <p className="text-emerald-100 text-xs mb-4">Reserve um veículo agora de forma rápida e segura.</p>
               <button 
                 onClick={() => navigate('/reservations', { state: { openModal: true } })}
-                className="w-full py-3 bg-white text-emerald-600 font-bold rounded-xl shadow-md hover:bg-emerald-50 transition-colors"
+                className="w-full py-2.5 bg-white text-emerald-600 text-sm font-bold rounded-xl shadow-md hover:bg-emerald-50 transition-colors"
               >
                 Nova Reserva
               </button>
             </div>
-            <Car className="absolute -right-8 -bottom-8 text-emerald-500/20 w-48 h-48 rotate-12" />
+            <Car className="absolute -right-6 -bottom-6 text-emerald-500/20 w-32 h-32 rotate-12" />
           </div>
 
-          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm relative overflow-hidden group">
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm relative overflow-hidden group">
             <div className="relative z-10">
-              <div className="w-12 h-12 bg-purple-50 dark:bg-purple-500/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Fuel className="text-purple-600" size={24} />
+              <div className="w-10 h-10 bg-purple-50 dark:bg-purple-500/10 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Fuel className="text-purple-600" size={20} />
               </div>
-              <h3 className="text-xl font-bold mb-2 dark:text-white">Abastecimento</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Registre o último abastecimento para manter o controle de consumo.</p>
+              <h3 className="text-lg font-bold mb-1 dark:text-white">Abastecimento</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 text-xs mb-4">Registre o último abastecimento para manter o controle de consumo.</p>
               <button 
                 onClick={() => setIsFuelingModalOpen(true)}
-                className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-purple-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
               >
-                <Plus size={18} />
+                <Plus size={16} />
                 Novo Registro
               </button>
             </div>
-            <Fuel className="absolute -right-8 -bottom-8 text-purple-500/5 w-48 h-48 -rotate-12 group-hover:rotate-0 transition-transform duration-500" />
+            <Fuel className="absolute -right-6 -bottom-6 text-purple-500/5 w-32 h-32 -rotate-12 group-hover:rotate-0 transition-transform duration-500" />
           </div>
 
           {(profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'maintenance') && (
-            <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm relative overflow-hidden group">
+            <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm relative overflow-hidden group">
               <div className="relative z-10">
-                <div className="w-12 h-12 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <Building2 className="text-blue-600" size={24} />
+                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-500/10 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                  <Building2 className="text-blue-600" size={20} />
                 </div>
-                <h3 className="text-xl font-bold mb-2 dark:text-white">Oficinas</h3>
-                <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Gerencie os prestadores de serviço e oficinas credenciadas.</p>
+                <h3 className="text-lg font-bold mb-1 dark:text-white">Oficinas</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 text-xs mb-4">Gerencie os prestadores de serviço e oficinas credenciadas.</p>
                 <button 
                   onClick={() => navigate('/workshops')}
-                  className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
                 >
                   Ver Oficinas
                 </button>
               </div>
-              <Building2 className="absolute -right-8 -bottom-8 text-blue-500/5 w-48 h-48 -rotate-12 group-hover:rotate-0 transition-transform duration-500" />
+              <Building2 className="absolute -right-6 -bottom-6 text-blue-500/5 w-32 h-32 -rotate-12 group-hover:rotate-0 transition-transform duration-500" />
             </div>
           )}
 
           {stats.maintenanceAlerts > 0 && (
-            <div className="bg-amber-50 dark:bg-amber-500/5 p-8 rounded-3xl border border-amber-200 dark:border-amber-500/20 shadow-sm">
-              <h3 className="text-lg font-bold mb-6 text-amber-600 dark:text-amber-500 flex items-center gap-2">
-                <AlertTriangle size={20} />
+            <div className="bg-amber-50 dark:bg-amber-500/5 p-6 rounded-2xl border border-amber-200 dark:border-amber-500/20 shadow-sm">
+              <h3 className="text-base font-bold mb-4 text-amber-600 dark:text-amber-500 flex items-center gap-2">
+                <AlertTriangle size={18} />
                 Alertas de Manutenção
               </h3>
               <div className="space-y-4">
@@ -456,9 +456,9 @@ export function Dashboard() {
             </div>
           )}
 
-          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-            <h3 className="text-lg font-bold mb-6 dark:text-white">Status da Frota</h3>
-            <div className="h-[200px]">
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <h3 className="text-base font-bold mb-4 dark:text-white">Status da Frota</h3>
+            <div className="h-[150px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie

@@ -112,10 +112,10 @@ export function Layout() {
       `}>
         <div className="p-6 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center shadow-sm">
-              <Car className="text-white" size={18} />
+            <div className="w-7 h-7 bg-emerald-500 rounded-lg flex items-center justify-center shadow-sm">
+              <Car className="text-white" size={16} />
             </div>
-            <span className="font-bold tracking-tight text-lg dark:text-white">ControlFrota</span>
+            <span className="font-bold tracking-tight text-base dark:text-white">ControlFrota</span>
           </div>
           <button 
             onClick={() => setIsSidebarOpen(false)}

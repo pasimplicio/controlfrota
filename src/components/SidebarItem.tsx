@@ -21,7 +21,7 @@ export function SidebarItem({ icon: Icon, label, active, onClick, danger }: Side
     <button
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-3 px-6 py-3 text-sm font-medium transition-all duration-200",
+        "w-full flex items-center gap-3 px-6 py-2.5 text-xs font-medium transition-all duration-200",
         active 
           ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 border-r-2 border-emerald-500" 
           : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800/50",
